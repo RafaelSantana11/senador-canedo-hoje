@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* As fontes de verdade (--font-sans / --font-heading) são injetadas em runtime,
+   normalmente no <html> ou <body> via next/font (className={fontVar.variable}).
+   Este bloco repassa essas variáveis pro Tailwind gerar font-sans / font-heading. */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+}
+
+@theme {
+  --radius-sm: calc(0.45rem * 0.6);
+  --radius-md: calc(0.45rem * 0.8);
+  --radius-lg: 0.45rem;
+  --radius-xl: calc(0.45rem * 1.4);
+  --radius-2xl: calc(0.45rem * 1.8);
+  --radius-3xl: calc(0.45rem * 2.2);
+  --radius-4xl: calc(0.45rem * 2.6);
+
+  /* Light mode colors */
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
+  --color-primary: #0b2a5b;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1e4f9a;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #eef2f7;
+  --color-muted-foreground: #5b6b82;
+  --color-accent: #7ec8f8;
+  --color-accent-foreground: #0b2a5b;
+  --color-destructive: #d62839;
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #1e4f9a;
+  --color-chart-1: #0b2a5b;
+  --color-chart-2: #1e4f9a;
+  --color-chart-3: #7ec8f8;
+  --color-chart-4: #d62839;
+  --color-chart-5: #5b6b82;
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #0f172a;
+  --color-sidebar-primary: #0b2a5b;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #eef2f7;
+  --color-sidebar-accent-foreground: #0b2a5b;
+  --color-sidebar-border: #e2e8f0;
+  --color-sidebar-ring: #1e4f9a;
+}
+
+@layer base {
+  .dark {
+    /* Light mode colors */
+    --color-background: #f8fafc;
+    --color-foreground: #0f172a;
+    --color-card: #ffffff;
+    --color-card-foreground: #0f172a;
+    --color-popover: #ffffff;
+    --color-popover-foreground: #0f172a;
+    --color-primary: #0b2a5b;
+    --color-primary-foreground: #ffffff;
+    --color-secondary: #1e4f9a;
+    --color-secondary-foreground: #ffffff;
+    --color-muted: #eef2f7;
+    --color-muted-foreground: #5b6b82;
+    --color-accent: #7ec8f8;
+    --color-accent-foreground: #0b2a5b;
+    --color-destructive: #d62839;
+    --color-border: #e2e8f0;
+    --color-input: #e2e8f0;
+    --color-ring: #1e4f9a;
+    --color-chart-1: #0b2a5b;
+    --color-chart-2: #1e4f9a;
+    --color-chart-3: #7ec8f8;
+    --color-chart-4: #d62839;
+    --color-chart-5: #5b6b82;
+    --color-sidebar: #ffffff;
+    --color-sidebar-foreground: #0f172a;
+    --color-sidebar-primary: #0b2a5b;
+    --color-sidebar-primary-foreground: #ffffff;
+    --color-sidebar-accent: #eef2f7;
+    --color-sidebar-accent-foreground: #0b2a5b;
+    --color-sidebar-border: #e2e8f0;
+    --color-sidebar-ring: #1e4f9a;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+}
