@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - boilerplate-db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env # Usamos o .env para as credenciais do banco local
+    environment:
+      # Variáveis que seriam injetadas pelo Render
+      DATABASE_HOST: postgres # Aponta para o serviço postgres
+      REDIS_HOST: localhost # O Redis roda no mesmo container
+      NODE_ENV: production
+      APP_PORT: 3000 # Porta interna do container
+      FILE_DRIVER: local
+      RUN_SEED: 'true' # ou 'false' para testar a lógica condicional
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  boilerplate-db:

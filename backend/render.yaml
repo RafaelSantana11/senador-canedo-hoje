@@ -1,0 +1,83 @@
+services:
+  # ============================================================================
+  # Web Service (API)
+  # ============================================================================
+  - type: web
+    name: osmanager-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    branch: main
+    region: ohio
+    plan: free
+    healthCheckPath: /health
+    
+    # Variáveis de ambiente
+    envVars:
+      # Database (conectado automaticamente ao banco gerenciado)
+      - key: DATABASE_TYPE
+        value: postgres
+      
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: osmanager-db
+          property: host
+      
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: osmanager-db
+          property: port
+      
+      - key: DATABASE_USERNAME
+        fromDatabase:
+          name: osmanager-db
+          property: user
+      
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: osmanager-db
+          property: password
+      
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: osmanager-db
+          property: database
+      
+      # Redis (rodando dentro do container Docker)
+      - key: REDIS_HOST
+        value: localhost
+      
+      - key: REDIS_PORT
+        value: 6379
+      
+      # Application
+      - key: NODE_ENV
+        value: production
+      
+      - key: APP_PORT
+        value: 10000
+      
+      # File Storage Driver
+      - key: FILE_DRIVER
+        value: local
+      
+      # Seeds - false em produção
+      - key: RUN_SEED
+        value: false
+      
+      # Adicione suas outras variáveis aqui (sync: false para valores manuais)
+      # - key: SENDGRID_API_KEY
+      #   sync: false
+      
+      # - key: JWT_SECRET
+      #   sync: false
+
+# ============================================================================
+# Database (PostgreSQL)
+# ============================================================================
+databases:
+  - name: osmanager-db
+    databaseName: osmanager
+    user: osmanager_user
+    plan: free
+    region: ohio
