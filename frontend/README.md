@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 ## Deploy da demo (GitHub Pages)
 
 O push na `main` que toque `frontend/**` dispara `.github/workflows/deploy-frontend-pages.yml`,
-que gera um export estático e publica em https://dougllasfm.github.io/senador-canedo-hoje/.
+que gera um export estático e publica em https://rafaelsantana11.github.io/senador-canedo-hoje/.
 
 O export é opt-in por env, então `npm run dev` e `npm run build` normais não mudam:
 
