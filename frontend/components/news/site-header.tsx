@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Menu, Search, X } from "lucide-react"
 import { categories } from "@/lib/news-data"
 import { cn } from "@/lib/utils"
@@ -26,9 +27,9 @@ export function SiteHeader() {
               Assine
             </a>
             <span className="h-3 w-px bg-primary-foreground/30" aria-hidden />
-            <a href="/login" className="transition-opacity hover:opacity-80">
+            <Link href="/login" className="transition-opacity hover:opacity-80">
               Entrar
-            </a>
+            </Link>
           </div>
         </div>
       </div>

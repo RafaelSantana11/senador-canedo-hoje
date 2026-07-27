@@ -13,6 +13,7 @@ import {
   isAuthenticated,
   login,
 } from "@/lib/admin-auth"
+import { assetPath } from "@/lib/utils"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -54,7 +55,7 @@ export default function LoginPage() {
         <div
           className="absolute inset-0 opacity-15"
           style={{
-            backgroundImage: "url(/news/hero-congress.png)",
+            backgroundImage: `url(${assetPath("/news/hero-congress.png")})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}

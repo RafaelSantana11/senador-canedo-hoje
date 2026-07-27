@@ -2,7 +2,7 @@ import { Inter, Merriweather } from "next/font/google"
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils"
+import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
 
 const merriweatherHeading = Merriweather({
@@ -17,22 +17,24 @@ export const metadata: Metadata = {
   description:
     "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
   generator: "v0.app",
+  // Metadata URLs are emitted verbatim — Next does not apply basePath here, so
+  // these need assetPath or the favicons 404 on a subpath deploy.
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
+        url: assetPath("/icon-light-32x32.png"),
         media: "(prefers-color-scheme: light)",
       },
       {
-        url: "/icon-dark-32x32.png",
+        url: assetPath("/icon-dark-32x32.png"),
         media: "(prefers-color-scheme: dark)",
       },
       {
-        url: "/icon.svg",
+        url: assetPath("/icon.svg"),
         type: "image/svg+xml",
       },
     ],
-    apple: "/apple-icon.png",
+    apple: assetPath("/apple-icon.png"),
   },
 }
 

@@ -1,5 +1,6 @@
 import { Quote } from 'lucide-react'
 import { columnists } from '@/lib/news-data'
+import { assetPath } from '@/lib/utils'
 
 export function ColumnistsSection() {
   return (
@@ -29,7 +30,7 @@ export function ColumnistsSection() {
           >
             <div className="flex items-center gap-4">
               <img
-                src={c.avatar || '/placeholder.svg'}
+                src={assetPath(c.avatar || '/placeholder.svg')}
                 alt={`Foto de ${c.name}`}
                 className="size-14 rounded-full object-cover ring-2 ring-accent/40"
               />

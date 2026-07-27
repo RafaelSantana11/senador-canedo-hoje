@@ -1,6 +1,7 @@
 import { Clock } from "lucide-react"
 import { CategoryBadge } from "@/components/news/category-badge"
 import { heroArticle, featuredArticles } from "@/lib/news-data"
+import { assetPath } from "@/lib/utils"
 
 export function HeroSection() {
   const secondary = featuredArticles.slice(0, 2)
@@ -17,7 +18,7 @@ export function HeroSection() {
       >
         <div className="relative w-full overflow-hidden">
           <img
-            src={heroArticle.image || "/placeholder.svg"}
+            src={assetPath(heroArticle.image || "/placeholder.svg")}
             alt=""
             className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
           />
@@ -53,7 +54,7 @@ export function HeroSection() {
           >
             <div className="relative h-40 w-full overflow-hidden lg:h-full lg:min-h-[9rem]">
               <img
-                src={article.image || "/placeholder.svg"}
+                src={assetPath(article.image || "/placeholder.svg")}
                 alt=""
                 className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
               />

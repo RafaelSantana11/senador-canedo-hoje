@@ -1,6 +1,7 @@
 import { Clock } from "lucide-react"
 import { CategoryBadge } from "@/components/news/category-badge"
 import { featuredArticles } from "@/lib/news-data"
+import { assetPath } from "@/lib/utils"
 
 export function FeaturedGrid() {
   return (
@@ -33,7 +34,7 @@ export function FeaturedGrid() {
           >
             <div className="relative aspect-[16/10] overflow-hidden">
               <img
-                src={article.image || "/placeholder.svg"}
+                src={assetPath(article.image || "/placeholder.svg")}
                 alt=""
                 className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
               />

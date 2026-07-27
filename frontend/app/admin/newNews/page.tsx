@@ -37,6 +37,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/admin/admin-shell"
 import { useAdminStore } from "@/components/admin/admin-store"
+import { assetPath } from "@/lib/utils"
 
 type PublishType = "noticia" | "publicidade"
 
@@ -703,7 +704,7 @@ function ArticlePreview(props: {
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={image}
+          src={assetPath(image)}
           alt=""
           className="h-56 w-full object-cover"
           onError={(e) => {
