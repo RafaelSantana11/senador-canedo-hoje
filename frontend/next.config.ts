@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     // Pages is a dumb file server: no /_next/image endpoint to optimize on demand.
     // The custom loader serves the original file and keeps basePath applied —
     // `unoptimized: true` would bypass it and 404 every image on a subpath.
-    images: { loader: "custom", loaderFile: "./lib/image-loader.ts" },
+    images: { loader: "custom", loaderFile: "./src/lib/image-loader.ts" },
     // Emits out/login/index.html instead of out/login.html, which is what Pages
     // resolves reliably for /login and /admin/noticias.
     trailingSlash: true,
