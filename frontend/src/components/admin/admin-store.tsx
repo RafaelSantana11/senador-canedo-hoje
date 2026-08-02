@@ -59,7 +59,7 @@ function seedNews(): AdminArticle[] {
       id: a.id,
       title: a.title,
       excerpt: a.excerpt ?? "",
-      content: a.excerpt ?? "",
+      content: a.content ?? a.excerpt ?? "",
       category: a.category,
       image: a.image,
       author: a.author ?? "Redação",

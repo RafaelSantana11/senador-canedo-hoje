@@ -1,10 +1,9 @@
-import { SiteHeader } from "@/components/news/site-header"
-import { HeroSection } from "@/components/news/hero-section"
-import { FeaturedGrid } from "@/components/news/featured-grid"
-import { NewsSidebar } from "@/components/news/news-sidebar"
-// import { VideosSection } from "@/components/news/videos-section"
-import { AdBanner } from "@/components/news/ad-banner"
-import { SiteFooter } from "@/components/news/site-footer"
+import { SiteHeader } from "@/features/admin/news/components/site-header"
+import { HeroSection } from "@/features/admin/news/components/hero-section"
+import { FeaturedGrid } from "@/features/admin/news/components/featured-grid"
+import { NewsSidebar } from "@/features/admin/news/components/news-sidebar"
+// import { VideosSection } from "@/features/admin/news/components/videos-section"
+import { AdBanner } from "@/features/admin/news/components/ad-banner"
 
 export default function HomePage() {
   return (
@@ -31,8 +30,6 @@ export default function HomePage() {
           <VideosSection />
         </div> */}
       </main>
-
-      <SiteFooter />
     </div>
   )
 }

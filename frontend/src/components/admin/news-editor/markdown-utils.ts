@@ -257,3 +257,30 @@ export function generateExcerpt(md: string, maxLength = 200): string {
     .trim()
     .slice(0, maxLength)
 }
+
+/* ─── In-content advertisement placement ─────────────────────────── */
+
+/** Splits markdown into top-level blocks separated by blank lines. */
+export function splitMarkdownBlocks(md: string): string[] {
+  return md.split(/\n\s*\n/).filter((b) => b.trim().length > 0)
+}
+
+/**
+ * Computes the 1-indexed block positions after which an in-content ad should
+ * be inserted. News up to 3 blocks get no ads; from 6 blocks onward one ad is
+ * inserted roughly every 5-6 blocks, growing with length and capped at `maxAds`.
+ */
+export function inContentAdPositions(
+  blockCount: number,
+  maxAds = 5,
+  interval = 6
+): number[] {
+  if (blockCount < 6) return []
+  const positions: number[] = []
+  let pos = interval
+  while (pos <= blockCount && positions.length < maxAds) {
+    positions.push(pos)
+    pos += interval
+  }
+  return positions
+}

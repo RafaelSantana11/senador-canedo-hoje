@@ -1,6 +1,8 @@
 import { Clock } from "lucide-react"
-import { CategoryBadge } from "@/components/news/category-badge"
+import Link from "next/link"
+import { CategoryBadge } from "@/features/admin/news/components/category-badge"
 import { featuredArticles } from "@/lib/news-data"
+import { slugify } from "@/lib/articles-store"
 import { assetPath } from "@/lib/utils"
 
 export function FeaturedGrid() {
@@ -27,9 +29,9 @@ export function FeaturedGrid() {
 
       <div className="grid gap-6 sm:grid-cols-2">
         {featuredArticles.map((article) => (
-          <a
+          <Link
             key={article.id}
-            href="#"
+            href={`/noticia/${slugify(article.title)}`}
             className="group flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border transition-all hover:-translate-y-0.5 hover:shadow-lg"
           >
             <div className="relative aspect-[16/10] overflow-hidden">
@@ -58,7 +60,7 @@ export function FeaturedGrid() {
                 <span>{article.time}</span>
               </div>
             </div>
-          </a>
+          </Link>
         ))}
       </div>
     </section>

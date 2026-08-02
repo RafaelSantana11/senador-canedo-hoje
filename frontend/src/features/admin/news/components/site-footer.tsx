@@ -1,4 +1,5 @@
 import { AtSign, Rss, Send, Share2 } from "lucide-react"
+import Link from "next/link"
 
 const footerSections = [
   {
@@ -35,7 +36,42 @@ const socials = [
   { icon: Rss, label: "Feed RSS" },
 ]
 
-export function SiteFooter() {
+interface SiteFooterProps {
+  /** Compact shows a slim bar, used on inner pages. */
+  variant?: "full" | "compact"
+}
+
+export function SiteFooter({ variant = "full" }: SiteFooterProps) {
+  if (variant === "compact") {
+    return (
+      <footer className="mt-16 border-t border-border bg-primary text-primary-foreground">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 text-center sm:flex-row sm:text-left">
+          <Link
+            href="/"
+            className="font-serif text-lg font-bold tracking-tight"
+          >
+            Senador Canedo Hoje
+          </Link>
+          <div className="flex items-center gap-4 text-xs text-primary-foreground/70">
+            <a href="#" className="transition-colors hover:text-accent">
+              Termos de uso
+            </a>
+            <a href="#" className="transition-colors hover:text-accent">
+              Privacidade
+            </a>
+            <a href="#" className="transition-colors hover:text-accent">
+              Fale conosco
+            </a>
+          </div>
+          <p className="text-xs text-primary-foreground/60">
+            © {new Date().getFullYear()} SenadorCanedoHoje. Todos os direitos
+            reservados.
+          </p>
+        </div>
+      </footer>
+    )
+  }
+
   return (
     <footer className="mt-16 border-t border-border bg-primary text-primary-foreground">
       <div className="mx-auto max-w-7xl px-4 py-12">

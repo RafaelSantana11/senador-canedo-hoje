@@ -1,6 +1,8 @@
 import { Clock, TrendingUp } from "lucide-react"
-import { AdBanner } from "@/components/news/ad-banner"
+import Link from "next/link"
+import { AdBanner } from "@/features/admin/news/components/ad-banner"
 import { mostRead, latestNews } from "@/lib/news-data"
+import { slugify } from "@/lib/articles-store"
 
 export function NewsSidebar() {
   return (
@@ -19,8 +21,8 @@ export function NewsSidebar() {
         <ol className="divide-y divide-border">
           {mostRead.map((article, i) => (
             <li key={article.id}>
-              <a
-                href="#"
+              <Link
+                href={`/noticia/${slugify(article.title)}`}
                 className="group flex items-start gap-3.5 px-5 py-4 transition-colors hover:bg-muted/60"
               >
                 <span className="font-serif text-2xl leading-none font-bold text-accent">
@@ -34,7 +36,7 @@ export function NewsSidebar() {
                     {article.title}
                   </h3>
                 </div>
-              </a>
+              </Link>
             </li>
           ))}
         </ol>
@@ -62,8 +64,8 @@ export function NewsSidebar() {
         <ul className="divide-y divide-border">
           {latestNews.map((article) => (
             <li key={article.id}>
-              <a
-                href="#"
+              <Link
+                href={`/noticia/${slugify(article.title)}`}
                 className="group block px-5 py-4 transition-colors hover:bg-muted/60"
               >
                 <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -78,7 +80,7 @@ export function NewsSidebar() {
                 <h3 className="mt-1.5 text-sm leading-snug font-semibold text-foreground transition-colors group-hover:text-secondary">
                   {article.title}
                 </h3>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>

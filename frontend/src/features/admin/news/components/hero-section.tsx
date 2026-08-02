@@ -1,6 +1,8 @@
 import { Clock } from "lucide-react"
-import { CategoryBadge } from "@/components/news/category-badge"
+import Link from "next/link"
+import { CategoryBadge } from "@/features/admin/news/components/category-badge"
 import { heroArticle, featuredArticles } from "@/lib/news-data"
+import { slugify } from "@/lib/articles-store"
 import { assetPath } from "@/lib/utils"
 
 export function HeroSection() {
@@ -12,8 +14,8 @@ export function HeroSection() {
       aria-label="Notícia em destaque"
     >
       {/* Main hero */}
-      <a
-        href="#"
+      <Link
+        href={`/noticia/${slugify(heroArticle.title)}`}
         className="group relative col-span-1 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border transition-shadow hover:shadow-xl lg:col-span-2"
       >
         <div className="relative w-full overflow-hidden">
@@ -42,14 +44,14 @@ export function HeroSection() {
             <span>{heroArticle.author}</span>
           </div>
         </div>
-      </a>
+      </Link>
 
       {/* Secondary stack */}
       <div className="flex flex-col gap-6">
         {secondary.map((article) => (
-          <a
+          <Link
             key={article.id}
-            href="#"
+            href={`/noticia/${slugify(article.title)}`}
             className="group relative flex-1 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border transition-shadow hover:shadow-lg"
           >
             <div className="relative h-40 w-full overflow-hidden lg:h-full lg:min-h-[9rem]">
@@ -70,7 +72,7 @@ export function HeroSection() {
                 <span>{article.time}</span>
               </div>
             </div>
-          </a>
+          </Link>
         ))}
       </div>
     </section>

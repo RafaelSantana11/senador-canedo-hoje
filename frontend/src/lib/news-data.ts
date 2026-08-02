@@ -2,6 +2,7 @@ export type Article = {
   id: string
   title: string
   excerpt?: string
+  content?: string
   category: string
   image: string
   time: string
@@ -26,6 +27,8 @@ export const heroArticle: Article = {
     'Congresso aprova nova reforma e governo comemora avanço em pauta econômica',
   excerpt:
     'Após semanas de negociação, o texto foi aprovado em votação apertada e agora segue para sanção. Entenda os principais pontos e como as mudanças afetam o seu bolso.',
+  content:
+    'Após semanas de negociação e um clima de tensão no plenário, o Congresso Nacional aprovou nesta semana o texto da nova reforma econômica, que agora segue para sanção presidencial. A votação, apertada, foi acompanhada de perto por parlamentares da base e da oposição.\n\n## Principais pontos da reforma\n\n- **Simplificação tributária:** a proposta unifica alíquotas e reduz a burocracia para as empresas.\n- **Regras fiscais:** cria um teto de gastos ajustado pela inflação e pela arrecadação.\n- **Investimentos em infraestrutura:** destina recursos para transporte, energia e saneamento.\n\n> "É um avanço importante, mas o acompanhamento da execução será essencial", avalia a economista Marina Duarte, que acompanhou a tramitação.\n\n## O que muda na prática\n\nPara a maior parte dos cidadãos, a reforma deve ter efeito gradual. Especialistas estimam que os reflexos mais relevantes apareçam no médio prazo, com a simplificação de processos e a previsibilidade das regras fiscais.\n\nO texto segue agora para sanção e deve entrar em vigor no próximo exercício fiscal, conforme o cronograma divulgado pelo governo.',
   category: 'Política',
   image: '/news/hero-congress.png',
   time: 'há 12 min',
