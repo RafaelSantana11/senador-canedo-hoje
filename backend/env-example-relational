@@ -8,7 +8,12 @@ FRONTEND_DOMAIN=http://localhost:3000
 BACKEND_DOMAIN=http://localhost:3000
 
 DATABASE_TYPE=postgres
-DATABASE_HOST=postgres
+# "localhost" serve aos dois perfis sem edição manual: no perfil "stack completa"
+# o docker-compose.yaml sobrescreve isto para "postgres" no serviço api (dentro da
+# rede Docker), enquanto no host este valor é o que faz funcionar `npm run
+# start:dev`, `npm run migration:run` e `npm run seed:run:relational` — a porta do
+# Postgres é publicada no host nos dois perfis.
+DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USERNAME=root
 DATABASE_PASSWORD=secret
@@ -22,12 +27,29 @@ DATABASE_KEY=
 DATABASE_CERT=
 DATABASE_URL=
 
+# Portas do serviço "maildev" (usadas por docker-compose.yaml e docker-compose-dev.yaml)
+MAIL_CLIENT_PORT=1080
+MAIL_PORT=1025
+
 # Support "local", "s3", "s3-presigned"
+# Para usar o MinIO local (ou o DigitalOcean Spaces em produção), troque para FILE_DRIVER=s3 ou
+# FILE_DRIVER=s3-presigned e preencha as variáveis do bloco "Storage S3-compatible" no final
+# deste arquivo. Veja docs/file-uploading.md para o passo a passo.
+# ⚠️ O driver é resolvido na carga do módulo (src/infra/files/files.module.ts) — depois de trocar
+# é preciso reiniciar a API, não é hot-swappable.
 FILE_DRIVER=local
-ACCESS_KEY_ID=
-SECRET_ACCESS_KEY=
-AWS_S3_REGION=
-AWS_DEFAULT_S3_BUCKET=
+# Em dev (MinIO), ACCESS_KEY_ID/SECRET_ACCESS_KEY devem bater com MINIO_ROOT_USER/
+# MINIO_ROOT_PASSWORD (bloco "Storage S3-compatible" no final deste arquivo). Em produção
+# (DigitalOcean Spaces), use um par de "Spaces access keys" gerado no painel da DO (não
+# confundir com o token de API da DO).
+ACCESS_KEY_ID=minioadmin
+SECRET_ACCESS_KEY=miniosecret123
+# Qualquer valor serve para o MinIO (convenção: us-east-1). Para o Spaces, use o slug real da
+# região do bucket (nyc3, sfo3, fra1, ams3...), coerente com o host de AWS_S3_ENDPOINT abaixo.
+AWS_S3_REGION=us-east-1
+# Em dev, este bucket é criado automaticamente no MinIO pelo sidecar "minio-init" (idempotente —
+# não falha se o bucket já existir).
+AWS_DEFAULT_S3_BUCKET=senador-canedo-hoje
 
 MAIL_USER=example@gmail.com
 MAIL_PASSWORD=your-app-password
@@ -52,3 +74,59 @@ GOOGLE_CLIENT_SECRET=
 APPLE_APP_AUDIENCE=[]
 
 WORKER_HOST=redis://redis:6379/1
+
+# --- Storage S3-compatible (MinIO em dev, DigitalOcean Spaces em produção) ---
+# Ver docs/installing-and-running.md e docs/file-uploading.md para o passo a passo completo.
+
+# Endpoint do serviço S3-compatible usado pelo BACKEND para falar com o storage (AWS SDK).
+# Sem isso, o SDK resolve o host real da AWS e não conversa nem com o MinIO nem com o Spaces.
+#   MinIO local, API no Docker (docker-compose.yaml, perfil "stack completa"):        http://minio:9000
+#   MinIO local, API no host   (docker-compose-dev.yaml + npm run start:dev):         http://localhost:9000
+#   DigitalOcean Spaces (produção):                                                   https://<regiao>.digitaloceanspaces.com
+#   AWS S3 (não usado neste projeto):                                                 deixe vazio
+# ⚠️ Em dev, o valor certo depende de ONDE a API roda (Docker ou host), não do storage escolhido:
+# dentro da rede Docker o MinIO é alcançado pelo nome do serviço ("minio"); no host, por
+# "localhost".
+# O default abaixo é "localhost" porque serve aos DOIS perfis sem edição manual: no perfil
+# "stack completa" o próprio docker-compose.yaml sobrescreve esta variável para http://minio:9000
+# no serviço "api" (é obrigatório, pois lá "localhost" seria o container da API), enquanto no
+# perfil "dependências isoladas" a API roda no host e usa este valor como está.
+AWS_S3_ENDPOINT=http://localhost:9000
+
+# true para MinIO (path-style: http://host:porta/bucket/key).
+# false para DigitalOcean Spaces (virtual-hosted style: bucket.regiao.digitaloceanspaces.com),
+# formato também usado pelo CDN do Spaces.
+# NÃO derive este valor a partir do endpoint: os dois cenários exigem endpoint customizado, mas
+# em estilos de URL diferentes.
+AWS_S3_FORCE_PATH_STYLE=true
+
+# Endpoint usado APENAS para assinar as URLs de upload entregues ao navegador
+# (driver s3-presigned). Deixe VAZIO: o host que a API usa internamente já serve
+# na maioria dos casos (API no host em dev, e endpoint do Spaces em produção, que
+# é público). A exceção é o perfil "stack completa": lá a API fala com o MinIO por
+# `minio:9000`, que não existe fora do Docker, e o docker-compose.yaml preenche
+# esta variável com http://localhost:9000 automaticamente para o serviço "api".
+# Por que uma env separada: o host faz parte da assinatura, então não é possível
+# assinar com um host e trocar depois — a URL seria rejeitada.
+AWS_S3_PUBLIC_ENDPOINT=
+
+# Base pública para montar a URL que o NAVEGADOR abre (formato final: "${AWS_S3_PUBLIC_URL}/<key>").
+# SEM barra no final.
+# Não confunda com AWS_S3_ENDPOINT acima: aquele é o host que o BACKEND usa para falar com o
+# storage (pode ser um nome interno da rede Docker, como "minio"); este é sempre um host que o
+# NAVEGADOR do usuário final consegue resolver.
+#   MinIO local (path-style):    http://localhost:9000/<bucket>
+#   DO Spaces (virtual-hosted):  https://<bucket>.<regiao>.digitaloceanspaces.com
+#   DO Spaces com CDN ligado:    https://<bucket>.<regiao>.cdn.digitaloceanspaces.com
+AWS_S3_PUBLIC_URL=http://localhost:9000/senador-canedo-hoje
+
+# Credenciais de root do container MinIO (uso local). DEVEM bater com ACCESS_KEY_ID/
+# SECRET_ACCESS_KEY definidas mais acima, senão o backend não autentica no bucket local.
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=miniosecret123
+
+# Portas do serviço MinIO. MINIO_PORT é a API S3 (a mesma referenciada em AWS_S3_ENDPOINT /
+# AWS_S3_PUBLIC_URL acima); MINIO_CONSOLE_PORT é o console web de administração (ver
+# docs/installing-and-running.md).
+MINIO_PORT=9000
+MINIO_CONSOLE_PORT=9001

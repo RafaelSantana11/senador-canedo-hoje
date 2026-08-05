@@ -61,8 +61,20 @@ echo "🚀 Starting Application"
 echo "Environment: ${NODE_ENV:-development}"
 echo "=========================================="
 
-# Força SSL para conexão do PostgreSQL
-export PGSSLMODE=require
+# SSL do PostgreSQL apenas quando explicitamente habilitado.
+#
+# Por que condicional: quando DATABASE_SSL_ENABLED != 'true', o código passa
+# `ssl: undefined` ao driver `pg` (ver data-source.ts e typeorm-config.service.ts),
+# e nesse caso o `pg` cai no PGSSLMODE do ambiente. Com `require` fixo, a conexão
+# e as migrations falham contra o Postgres local do compose, que não tem SSL.
+# Em produção (Render) DATABASE_SSL_ENABLED=true, então o comportamento anterior
+# é preservado.
+if [ "${DATABASE_SSL_ENABLED}" = "true" ]; then
+  export PGSSLMODE=require
+  echo "🔒 SSL: PGSSLMODE=require"
+else
+  echo "🔓 SSL: desabilitado (DATABASE_SSL_ENABLED=${DATABASE_SSL_ENABLED:-unset})"
+fi
 
 # Função para aguardar o banco de dados
 wait_for_database() {

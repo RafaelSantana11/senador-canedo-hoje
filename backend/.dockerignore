@@ -3,3 +3,16 @@ package-lock.json
 /.data
 /dist
 /files
+
+# Segredos e metadados não devem entrar na imagem: o estágio `builder` faz
+# `COPY . .`, então sem isto o .env local seria copiado para dentro do build.
+# As variáveis chegam em runtime via `env_file` do compose (ou pelo painel do
+# provedor em produção), então ignorar aqui não quebra nada.
+.env
+.env.*
+!.env.example
+.git
+.github
+
+# NÃO adicionar yarn.lock: o Dockerfile faz `COPY package.json yarn.lock ./`
+# e roda `yarn install --frozen-lockfile`; ignorá-lo quebraria o build.

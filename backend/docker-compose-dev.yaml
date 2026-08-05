@@ -1,3 +1,9 @@
+# Perfil de desenvolvimento: sobe apenas as DEPENDÊNCIAS.
+# A API roda no host, fora do Docker, via `npm run start:dev`.
+#
+# ⚠️ Como a API está no host, ela alcança estes serviços por `localhost` —
+# portanto o .env deve usar AWS_S3_ENDPOINT=http://localhost:9000 neste perfil
+# (no docker-compose.yaml, onde a API roda dentro da rede, o host é `minio`).
 services:
   postgres:
     image: postgres:17.6-alpine
@@ -9,6 +15,12 @@ services:
       POSTGRES_USER: ${DATABASE_USERNAME}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   maildev:
     build:
@@ -23,5 +35,46 @@ services:
     ports:
       - 6379:6379
 
+  # Storage S3-compatible para desenvolvimento local (simula o DigitalOcean
+  # Spaces de produção).
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    ports:
+      - ${MINIO_PORT:-9000}:9000
+      - ${MINIO_CONSOLE_PORT:-9001}:9001
+    volumes:
+      - boilerplate-minio:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Job de bootstrap: cria o bucket e libera leitura anônima, depois encerra.
+  # Idempotente (`--ignore-existing`), então subir de novo não quebra.
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      AWS_DEFAULT_S3_BUCKET: ${AWS_DEFAULT_S3_BUCKET}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$AWS_DEFAULT_S3_BUCKET"
+        mc anonymous set download "local/$$AWS_DEFAULT_S3_BUCKET"
+        echo "✅ bucket '$$AWS_DEFAULT_S3_BUCKET' pronto (leitura pública habilitada)"
+
 volumes:
   boilerplate-db:
+  boilerplate-minio:

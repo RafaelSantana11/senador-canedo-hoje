@@ -13,6 +13,7 @@ import multerS3 from 'multer-s3';
 import { FilesS3Service } from './files.service';
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
+import { S3_UPLOAD_ACL } from '../s3-acl.constant';
 
 const infrastructurePersistenceModule = RelationalFilePersistenceModule;
 
@@ -25,6 +26,13 @@ const infrastructurePersistenceModule = RelationalFilePersistenceModule;
       useFactory: (configService: ConfigService<AllConfigType>) => {
         const s3 = new S3Client({
           region: configService.get('file.awsS3Region', { infer: true }),
+          // Endpoint/path-style vêm de env para o mesmo código servir MinIO
+          // (dev) e DigitalOcean Spaces (produção). `undefined` no endpoint
+          // mantém a resolução automática do host da AWS.
+          endpoint: configService.get('file.awsS3Endpoint', { infer: true }),
+          forcePathStyle: configService.get('file.awsS3ForcePathStyle', {
+            infer: true,
+          }),
           credentials: {
             accessKeyId: configService.getOrThrow('file.accessKeyId', {
               infer: true,
@@ -56,6 +64,7 @@ const infrastructurePersistenceModule = RelationalFilePersistenceModule;
             bucket: configService.getOrThrow('file.awsDefaultS3Bucket', {
               infer: true,
             }),
+            acl: S3_UPLOAD_ACL,
             contentType: multerS3.AUTO_CONTENT_TYPE,
             key: (request, file, callback) => {
               callback(

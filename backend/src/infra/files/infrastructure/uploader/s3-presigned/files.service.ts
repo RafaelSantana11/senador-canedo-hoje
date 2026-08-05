@@ -13,6 +13,7 @@ import { randomStringGenerator } from '@nestjs/common/utils/random-string-genera
 import { ConfigService } from '@nestjs/config';
 import { FileType } from '../../../domain/file';
 import { AllConfigType } from '../../../../config/config.type';
+import { S3_UPLOAD_ACL } from '../s3-acl.constant';
 
 @Injectable()
 export class FilesS3PresignedService {
@@ -24,6 +25,17 @@ export class FilesS3PresignedService {
   ) {
     this.s3 = new S3Client({
       region: configService.get('file.awsS3Region', { infer: true }),
+      // Este client existe para assinar URLs que o NAVEGADOR vai chamar, então
+      // usa o endpoint público quando definido. O host entra na assinatura, logo
+      // assinar com um host interno da rede Docker (`minio:9000`) produziria uma
+      // URL que o cliente não resolve. Vazio => cai no endpoint normal, que é o
+      // correto com a API no host e em produção (endpoint do Spaces é público).
+      endpoint:
+        configService.get('file.awsS3PublicEndpoint', { infer: true }) ??
+        configService.get('file.awsS3Endpoint', { infer: true }),
+      forcePathStyle: configService.get('file.awsS3ForcePathStyle', {
+        infer: true,
+      }),
       credentials: {
         accessKeyId: configService.getOrThrow('file.accessKeyId', {
           infer: true,
@@ -74,12 +86,20 @@ export class FilesS3PresignedService {
       .pop()
       ?.toLowerCase()}`;
 
+    // Contrato com o front: a ACL é assinada como *query param* da URL
+    // (`x-amz-acl=public-read`), não como header — o `X-Amz-SignedHeaders` fica
+    // apenas com `content-length;host`. Portanto o cliente NÃO precisa mandar
+    // nenhum header de ACL no PUT; basta usar a `uploadSignedUrl` exatamente
+    // como recebida, sem remover nem reordenar query params (qualquer alteração
+    // invalida a assinatura). Verificado contra o MinIO: PUT com e sem o header
+    // `x-amz-acl` retornam 200, e o objeto resultante fica publicamente legível.
     const command = new PutObjectCommand({
       Bucket: this.configService.getOrThrow('file.awsDefaultS3Bucket', {
         infer: true,
       }),
       Key: key,
       ContentLength: file.fileSize,
+      ACL: S3_UPLOAD_ACL,
     });
     const signedUrl = await getSignedUrl(this.s3, command, { expiresIn: 3600 });
     const data = await this.fileRepository.create({

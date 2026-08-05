@@ -1,6 +1,12 @@
 import { registerAs } from '@nestjs/config';
 
-import { IsEnum, IsOptional, IsString, ValidateIf } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 import { FileDriver, FileConfig } from './file-config.type';
 import validateConfig from 'src/utils/validate-config';
 
@@ -35,6 +41,31 @@ class EnvironmentVariablesValidator {
   @IsString()
   @IsOptional()
   AWS_S3_REGION: string;
+
+  @ValidateIf((envValues) =>
+    [FileDriver.S3, FileDriver.S3_PRESIGNED].includes(envValues.FILE_DRIVER),
+  )
+  @IsString()
+  @IsOptional()
+  AWS_S3_ENDPOINT: string;
+
+  @IsBoolean()
+  @IsOptional()
+  AWS_S3_FORCE_PATH_STYLE: boolean;
+
+  @ValidateIf((envValues) =>
+    [FileDriver.S3, FileDriver.S3_PRESIGNED].includes(envValues.FILE_DRIVER),
+  )
+  @IsString()
+  @IsOptional()
+  AWS_S3_PUBLIC_ENDPOINT: string;
+
+  @ValidateIf((envValues) =>
+    [FileDriver.S3, FileDriver.S3_PRESIGNED].includes(envValues.FILE_DRIVER),
+  )
+  @IsString()
+  @IsOptional()
+  AWS_S3_PUBLIC_URL: string;
 }
 
 export default registerAs<FileConfig>('file', () => {
@@ -47,6 +78,14 @@ export default registerAs<FileConfig>('file', () => {
     secretAccessKey: process.env.SECRET_ACCESS_KEY,
     awsDefaultS3Bucket: process.env.AWS_DEFAULT_S3_BUCKET,
     awsS3Region: process.env.AWS_S3_REGION,
+    // `|| undefined` é essencial: com string vazia o SDK tenta usar '' como
+    // endpoint e quebra a resolução automática do host real da AWS.
+    awsS3Endpoint: process.env.AWS_S3_ENDPOINT || undefined,
+    // Env chega como string; a conversão precisa ser explícita (mesmo padrão de
+    // DATABASE_SYNCHRONIZE em database.config.ts). Ausente/vazia => false.
+    awsS3ForcePathStyle: process.env.AWS_S3_FORCE_PATH_STYLE === 'true',
+    awsS3PublicEndpoint: process.env.AWS_S3_PUBLIC_ENDPOINT || undefined,
+    awsS3PublicUrl: process.env.AWS_S3_PUBLIC_URL || undefined,
     maxFileSize: 5242880, // 5mb
   };
 });
