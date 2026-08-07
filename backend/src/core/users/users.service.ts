@@ -17,14 +17,55 @@ import { UserStatusEnum } from './infrastructure/persistence/relational/entities
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FilesService } from 'src/infra/files/files.service';
 import { FileType } from 'src/infra/files/domain/file';
+import { DataSource } from 'typeorm';
+import { AuthorsService } from '../authors/authors.service';
+
+/**
+ * Duas criações simultâneas de usuários homônimos podem escolher o mesmo slug
+ * antes de qualquer uma gravar — a checagem de disponibilidade e o INSERT não
+ * são atômicos entre si. Quem perde a corrida bate no índice único de
+ * `author.slug` e tem a transação inteira revertida (nenhum usuário órfão é
+ * criado, que é o que importa), mas a requisição em si é legítima e não deveria
+ * falhar. Detectar o conflito permite simplesmente tentar de novo, e o próximo
+ * sufixo já estará livre.
+ */
+type PostgresError = { code?: string; detail?: string };
+
+const isAuthorSlugConflict = (error: unknown): boolean => {
+  // O TypeORM copia as propriedades do erro do driver para o próprio
+  // QueryFailedError e também as expõe em `driverError` — a versão varia entre
+  // releases, então lê dos dois lugares.
+  const asError = error as PostgresError & { driverError?: PostgresError };
+  const code = asError?.driverError?.code ?? asError?.code;
+  const detail = asError?.driverError?.detail ?? asError?.detail;
+
+  return (
+    code === '23505' && // unique_violation no Postgres
+    (detail?.includes('(slug)') ?? false)
+  );
+};
+
+const MAX_SLUG_ATTEMPTS = 3;
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly usersRepository: UserRepository,
     private readonly filesService: FilesService,
+    private readonly authorsService: AuthorsService,
+    private readonly dataSource: DataSource,
   ) {}
 
+  /**
+   * Cria `User` **e** o `Author` 1:1 correspondente na mesma transação. Se a
+   * criação do `Author` falhar (slug duplicado, por exemplo), o `User` não é
+   * criado — não existe janela em que exista usuário sem perfil de autor.
+   *
+   * Todos os caminhos de criação de usuário passam por aqui de propósito
+   * (`POST /users` e o Google OAuth desregistrado), então o invariante vale
+   * para todos eles sem que cada chamador precise lembrar. O seed é o único
+   * caminho de fora, e trata o `Author` por conta própria.
+   */
   async create(createUserDto: CreateUserDto): Promise<User> {
     // Do not remove comment below.
     // <creating-property />
@@ -72,8 +113,6 @@ export class UsersService {
       photo = null;
     }
 
-    let role: Role | undefined = undefined;
-
     if (createUserDto.role?.id) {
       const roleObject = Object.values(RoleEnum)
         .map(String)
@@ -86,27 +125,59 @@ export class UsersService {
           },
         });
       }
-
-      role = {
-        id: createUserDto.role.id,
-      };
     }
 
-    return this.usersRepository.create({
-      // Do not remove comment below.
-      // <creating-property-payload />
-      name: createUserDto.name,
-      legalName: createUserDto.legalName,
-      email: email,
-      password: password,
-      photo: photo,
-      role: role,
-      status: createUserDto.status ?? UserStatusEnum.ACTIVE,
-      trialStartDate: new Date(),
-      messageApiKey: createUserDto.messageApiKey || null,
-      provider: createUserDto.provider ?? AuthProvidersEnum.email,
-      socialId: createUserDto.socialId,
-    });
+    // Default explícito de role. Sem isto, um payload sem `role` criava usuário
+    // com `role: undefined`, que fura o RolesGuard de formas confusas (o guard
+    // compara `request.user?.role?.id`, que simplesmente não bate com nada).
+    const role: Role = {
+      id: createUserDto.role?.id ?? RoleEnum.user,
+    };
+
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.dataSource.transaction(async (entityManager) => {
+          const user = await this.usersRepository.create(
+            {
+              // Do not remove comment below.
+              // <creating-property-payload />
+              name: createUserDto.name,
+              legalName: createUserDto.legalName,
+              email: email,
+              password: password,
+              photo: photo,
+              role: role,
+              status: createUserDto.status ?? UserStatusEnum.ACTIVE,
+              trialStartDate: new Date(),
+              messageApiKey: createUserDto.messageApiKey || null,
+              provider: createUserDto.provider ?? AuthProvidersEnum.email,
+              socialId: createUserDto.socialId,
+            },
+            entityManager,
+          );
+
+          user.author = await this.authorsService.createForUser(
+            { user, dto: createUserDto.author },
+            entityManager,
+          );
+
+          return user;
+        });
+      } catch (error) {
+        if (!isAuthorSlugConflict(error)) {
+          throw error;
+        }
+
+        if (attempt >= MAX_SLUG_ATTEMPTS) {
+          throw new UnprocessableEntityException({
+            status: HttpStatus.UNPROCESSABLE_ENTITY,
+            errors: {
+              name: 'authorSlugConflict',
+            },
+          });
+        }
+      }
+    }
   }
 
   findManyWithPagination({
@@ -262,7 +333,16 @@ export class UsersService {
     });
   }
 
+  /**
+   * Soft delete do `User` **e** do `Author` juntos, na mesma transação — os dois
+   * caminhos de saída (`DELETE /users/:id` e `DELETE /auth/me`) passam por aqui.
+   * Soft delete nos dois porque `Author` será referenciado por `News` e `File`
+   * na Parte 4: apagar de verdade quebraria histórico de conteúdo publicado.
+   */
   async remove(id: User['id']): Promise<void> {
-    await this.usersRepository.remove(id);
+    await this.dataSource.transaction(async (entityManager) => {
+      await this.authorsService.softDeleteByUserId(id, entityManager);
+      await this.usersRepository.remove(id, entityManager);
+    });
   }
 }

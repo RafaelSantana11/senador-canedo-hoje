@@ -1,3 +1,4 @@
+import { EntityManager } from 'typeorm';
 import { DeepPartial } from '../../../../utils/types/deep-partial.type';
 import { NullableType } from '../../../../utils/types/nullable.type';
 import { IPaginationOptions } from '../../../../utils/types/pagination-options';
@@ -6,8 +7,13 @@ import { User } from '../../domain/user';
 import { FilterUserDto, SortUserDto } from '../../dto/query-user.dto';
 
 export abstract class UserRepository {
+  /**
+   * `entityManager` opcional para que `User` e `Author` sejam criados na mesma
+   * transação (ver `UsersService.create`). Sem ele, usa a conexão padrão.
+   */
   abstract create(
     data: Omit<User, 'id' | 'createdAt' | 'deletedAt' | 'updatedAt'>,
+    entityManager?: EntityManager,
   ): Promise<User>;
 
   abstract findManyWithPagination({
@@ -36,5 +42,5 @@ export abstract class UserRepository {
     payload: DeepPartial<User>,
   ): Promise<User | null>;
 
-  abstract remove(id: User['id']): Promise<void>;
+  abstract remove(id: User['id'], entityManager?: EntityManager): Promise<void>;
 }

@@ -19,7 +19,6 @@ import { AuthConfirmEmailDto } from './dto/auth-confirm-email.dto';
 import { AuthResetPasswordDto } from './dto/auth-reset-password.dto';
 import { AuthUpdateDto } from './dto/auth-update.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthRegisterLoginDto } from './dto/auth-register-login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { NullableType } from '../../utils/types/nullable.type';
 import { User } from '../users/domain/user';
@@ -45,11 +44,17 @@ export class AuthController {
     return this.service.validateLogin(loginDto);
   }
 
-  @Post('email/register')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async register(@Body() createUserDto: AuthRegisterLoginDto): Promise<void> {
-    return this.service.register(createUserDto);
-  }
+  // Registro público DESABILITADO — 2026-08-05
+  //
+  // Este é um painel administrativo: novos usuários só são criados de dentro
+  // dele, via `POST /api/v1/users` (admin-only), e o primeiro admin vem do seed.
+  // A rota foi removida em vez de apenas protegida — deixá-la com guard
+  // convidaria alguém a "liberar de novo" sem entender o motivo.
+  //
+  // `AuthService.register()` continua no código (dispara o e-mail de ativação),
+  // mas sem entrada HTTP. Se o cadastro público voltar um dia, lembre que ele
+  // também precisa criar o `Author` 1:1 — hoje isso é garantido porque ele passa
+  // por `UsersService.create()`.
 
   @Post('email/confirm')
   @HttpCode(HttpStatus.NO_CONTENT)

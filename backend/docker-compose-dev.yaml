@@ -28,7 +28,9 @@ services:
       dockerfile: maildev.Dockerfile
     ports:
       - ${MAIL_CLIENT_PORT}:1080
-      - ${MAIL_PORT}:1025
+      # Ver comentário equivalente em docker-compose.yaml: MAIL_PORT passou a ser
+      # a porta SMTP de saída da API, então o maildev ganhou env própria.
+      - ${MAILDEV_SMTP_PORT:-1025}:1025
 
   redis:
     image: redis:7-alpine

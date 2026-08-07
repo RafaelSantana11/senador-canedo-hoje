@@ -1,5 +1,46 @@
 # Auth
 
+> ## ⚠️ Ajustes deste projeto (2026-08-07) — leia antes do restante
+>
+> Este documento vem do boilerplate original. Quatro coisas divergem aqui, e o que
+> está escrito neste bloco prevalece sobre o resto do arquivo.
+>
+> **1. Login social está DESABILITADO.** O projeto trabalha só com e-mail + senha.
+> As seções [Auth via Apple](#auth-via-apple), [Auth via Facebook](#auth-via-facebook)
+> e [Auth via Google](#auth-via-google) descrevem código que **continua no
+> repositório mas não está registrado**: `AuthGoogleModule` e `googleConfig` foram
+> retirados das listas `imports`/`load` do `src/app.module.ts`. Nenhuma rota
+> `/api/v1/auth/{google,facebook,apple}/*` responde — todas dão 404.
+>
+> **Como reativar** (se um dia for preciso): devolver ao `src/app.module.ts` o
+> `import googleConfig from './core/auth-google/config/google.config'`, o
+> `import { AuthGoogleModule }`, e incluí-los em `load` e `imports`.
+> ⚠️ **Antes de reativar, leia**: o OAuth cria `User` por fora do
+> `UsersService.create()`, e todo `User` neste projeto precisa ter um `Author` 1:1
+> (ver abaixo). Reativar sem fazer o fluxo OAuth criar o `Author` na mesma
+> transação fura o invariante silenciosamente.
+>
+> **2. Registro público está DESABILITADO.** `POST /api/v1/auth/email/register`
+> **não existe mais** (404). Este é um painel administrativo: o primeiro admin vem
+> do seed e os demais usuários são criados por
+> `POST /api/v1/users` (admin-only). O passo "1. Sign up via email and password"
+> do diagrama abaixo não se aplica.
+>
+> **3. Todo `User` tem um `Author` 1:1.** Criar usuário cria o perfil editorial na
+> **mesma transação** — se o `Author` falhar, o `User` não é criado. Deletar
+> usuário faz soft delete dos dois. Não há rota para criar ou apagar `Author`
+> avulso. `GET /api/v1/auth/me` devolve o `author` junto.
+>
+> **4. Autenticação é por Bearer token no header — não por cookie.** O board
+> original pedia "JWT em cookies"; foi revertido porque front e API ficam em
+> **sites diferentes**, cenário em que o cookie da API é cookie de terceiros
+> (bloqueado por padrão no Safari, particionado no Firefox). O fluxo de token
+> descrito em [Refresh token flow](#refresh-token-flow) continua valendo
+> integralmente.
+>
+> Contrato completo das rotas para o frontend: **`INTEGRACAO-AUTH-AUTHORS.md`**,
+> na raiz do repositório.
+
 ## Table of Contents <!-- omit in toc -->
 
 - [General info](#general-info)
@@ -89,6 +130,9 @@ For auth with external services or social networks you need:
 
 ## Auth via Apple
 
+> ⚠️ **Desabilitado neste projeto** — ver o bloco no topo. As instruções abaixo só
+> valem depois de reativar o módulo social.
+
 1. [Set up your service on Apple](https://www.npmjs.com/package/apple-signin-auth)
 1. Change `APPLE_APP_AUDIENCE` in `.env`
 
@@ -97,6 +141,8 @@ For auth with external services or social networks you need:
    ```
 
 ## Auth via Facebook
+
+> ⚠️ **Desabilitado neste projeto** — ver o bloco no topo.
 
 1. Go to https://developers.facebook.com/apps/creation/ and create a new app
    <img alt="image" src="https://github.com/brocoders/nestjs-boilerplate/assets/6001723/05721db2-9d26-466a-ad7a-072680d0d49b">
@@ -112,6 +158,10 @@ For auth with external services or social networks you need:
    ```
 
 ## Auth via Google
+
+> ⚠️ **Desabilitado neste projeto** — `AuthGoogleModule` está desregistrado do
+> `src/app.module.ts`. Ver o bloco no topo, incluindo a ressalva sobre o `Author`
+> 1:1 antes de reativar.
 
 1. You need a `CLIENT_ID`, `CLIENT_SECRET`. You can find these pieces of information by going to the [Developer Console](https://console.cloud.google.com/), clicking your project (if doesn't have create it here https://console.cloud.google.com/projectcreate) -> `APIs & services` -> `credentials`.
 1. Change `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`

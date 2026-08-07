@@ -14,9 +14,40 @@ import { AllConfigType } from './infra/config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, { cors: false });
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
+
+  // CORS restrito às origens de FRONTEND_DOMAIN.
+  //
+  // Antes era `cors: true`, que reflete QUALQUER origem. Como front e API ficam
+  // em sites diferentes, o CORS deixa de ser detalhe e passa a ser a fronteira
+  // de quem consegue chamar a API pelo navegador.
+  //
+  // `credentials` fica de fora de propósito: a autenticação é por Bearer token
+  // no header, não por cookie — não há credencial que o navegador anexe
+  // sozinho, então não há o que liberar (e liberar abriria superfície à toa).
+  const corsOrigins = configService.get('app.corsOrigins', { infer: true });
+
+  if (!corsOrigins?.length) {
+    // `origin: false` bloqueia todo cross-origin. Sem FRONTEND_DOMAIN não há
+    // como saber quem liberar, e falhar fechado é melhor que reabrir para todos.
+    console.warn(
+      '[CORS] FRONTEND_DOMAIN não configurada — nenhuma origem cross-site ' +
+        'será aceita. Defina FRONTEND_DOMAIN (lista separada por vírgula).',
+    );
+  }
+
+  app.enableCors({
+    origin: corsOrigins?.length ? corsOrigins : false,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      configService.getOrThrow('app.headerLanguage', { infer: true }),
+    ],
+    maxAge: 3600,
+  });
 
   app.enableShutdownHooks();
   app.setGlobalPrefix(

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { FindOptionsWhere, Repository, In } from 'typeorm';
+import { EntityManager, FindOptionsWhere, Repository, In } from 'typeorm';
 import { UserEntity } from '../entities/user.entity';
 import { NullableType } from '../../../../../../utils/types/nullable.type';
 import { FilterUserDto, SortUserDto } from '../../../../dto/query-user.dto';
@@ -17,10 +17,17 @@ export class UsersRelationalRepository implements UserRepository {
     private readonly usersRepository: Repository<UserEntity>,
   ) {}
 
-  async create(data: User): Promise<User> {
+  private repo(entityManager?: EntityManager): Repository<UserEntity> {
+    return entityManager
+      ? entityManager.getRepository(UserEntity)
+      : this.usersRepository;
+  }
+
+  async create(data: User, entityManager?: EntityManager): Promise<User> {
+    const repository = this.repo(entityManager);
     const persistenceModel = UserMapper.toPersistence(data);
-    const newEntity = await this.usersRepository.save(
-      this.usersRepository.create(persistenceModel),
+    const newEntity = await repository.save(
+      repository.create(persistenceModel),
     );
     return UserMapper.toDomain(newEntity);
   }
@@ -120,7 +127,7 @@ export class UsersRelationalRepository implements UserRepository {
     return UserMapper.toDomain(updatedEntity);
   }
 
-  async remove(id: User['id']): Promise<void> {
-    await this.usersRepository.softDelete(id);
+  async remove(id: User['id'], entityManager?: EntityManager): Promise<void> {
+    await this.repo(entityManager).softDelete(id);
   }
 }

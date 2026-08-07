@@ -13,8 +13,10 @@ import {
   IsOptional,
   MinLength,
   IsString,
+  ValidateNested,
 } from 'class-validator';
 import { RoleDto } from '../../roles/dto/role.dto';
+import { CreateAuthorDto } from '../../authors/dto/create-author.dto';
 import { lowerCaseTransformer } from '../../../utils/transformers/lower-case.transformer';
 import { UserStatusEnum } from '../infrastructure/persistence/relational/entities/user.entity';
 import { FileDto } from 'src/infra/files/dto/file.dto';
@@ -62,4 +64,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   messageApiKey?: string | null;
+
+  /**
+   * Campos editoriais do `Author` que nasce junto deste usuário. Opcional: se
+   * omitido, o autor é criado mesmo assim, com `bio: null` e
+   * `isColumnist: false`. O `slug` é gerado a partir do `name`.
+   */
+  @ApiPropertyOptional({ type: () => CreateAuthorDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateAuthorDto)
+  author?: CreateAuthorDto;
 }

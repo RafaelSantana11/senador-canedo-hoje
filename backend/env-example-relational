@@ -1,10 +1,21 @@
 NODE_ENV=development
 APP_PORT=3000
-APP_NAME="NestJS API"
+# Nome do produto exibido DENTRO do corpo dos e-mails ({{app_name}} nos templates
+# .hbs). Não confundir com MAIL_DEFAULT_NAME, que é o nome do REMETENTE que
+# aparece na lista de mensagens.
+APP_NAME="Portal Senador Canedo Hoje"
 API_PREFIX=api
-APP_FALLBACK_LANGUAGE=en
+APP_FALLBACK_LANGUAGE=pt
 APP_HEADER_LANGUAGE=x-custom-lang
-FRONTEND_DOMAIN=http://localhost:3000
+# Origens do frontend. Aceita LISTA separada por vírgula, para cobrir local e
+# produção ao mesmo tempo — é a allowlist do CORS (a API só aceita chamadas de
+# navegador vindas daqui). A PRIMEIRA origem é a canônica: é ela que monta os
+# links dos e-mails de recuperação de senha e confirmação.
+# Ex.: FRONTEND_DOMAIN=http://localhost:3001,https://portal.exemplo.com.br
+# 3001 já vem incluída porque `next dev` sobe na 3000 por padrão, que é a porta da
+# API — na prática o front roda em `next dev -p 3001`. Sem esta origem na lista, o
+# navegador bloqueia toda chamada do front por CORS.
+FRONTEND_DOMAIN=http://localhost:3000,http://localhost:3001
 BACKEND_DOMAIN=http://localhost:3000
 
 DATABASE_TYPE=postgres
@@ -27,9 +38,12 @@ DATABASE_KEY=
 DATABASE_CERT=
 DATABASE_URL=
 
-# Portas do serviço "maildev" (usadas por docker-compose.yaml e docker-compose-dev.yaml)
+# Portas do serviço "maildev" (usadas por docker-compose.yaml e docker-compose-dev.yaml).
+# MAIL_CLIENT_PORT = interface web do maildev; MAILDEV_SMTP_PORT = porta SMTP dele.
+# Não confunda com MAIL_PORT (bloco de e-mail abaixo), que é a porta SMTP para onde
+# a API ENVIA. Para usar o maildev, aponte MAIL_HOST=localhost e MAIL_PORT=1025.
 MAIL_CLIENT_PORT=1080
-MAIL_PORT=1025
+MAILDEV_SMTP_PORT=1025
 
 # Support "local", "s3", "s3-presigned"
 # Para usar o MinIO local (ou o DigitalOcean Spaces em produção), troque para FILE_DRIVER=s3 ou
@@ -51,15 +65,51 @@ AWS_S3_REGION=us-east-1
 # não falha se o bucket já existir).
 AWS_DEFAULT_S3_BUCKET=senador-canedo-hoje
 
+# --- E-mail (SMTP) ---
+# O transporte é configurável por env (não é mais hardcoded no Gmail).
+#
+# Produção / dev com Gmail real:
+#   MAIL_HOST=smtp.gmail.com, MAIL_PORT=587, MAIL_SECURE=false, MAIL_REQUIRE_TLS=true
+#   MAIL_USER = a conta Gmail que autentica
+#   MAIL_PASSWORD = SENHA DE APP de 16 caracteres (não é a senha da conta).
+#     - exige verificação em duas etapas ativa na conta Google;
+#     - gerada em Conta Google > Segurança > Senhas de app;
+#     - o Google exibe com espaços ("abcd efgh ijkl mnop") — cole SEM os espaços.
+#   ⚠️ MAIL_DEFAULT_EMAIL deve ser O MESMO endereço de MAIL_USER: o Gmail reescreve
+#      ou rejeita o "From" quando ele difere da conta autenticada.
+#   Erro típico de credencial errada: "535-5.7.8 Username and Password not accepted".
+#
+# Dev contra o maildev do docker-compose (sem credenciais):
+#   MAIL_HOST=localhost, MAIL_PORT=1025, MAIL_SECURE=false, MAIL_REQUIRE_TLS=false,
+#   MAIL_USER= e MAIL_PASSWORD= vazios (sem `auth`, o maildev aceita qualquer envio).
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+# false na 587 (STARTTLS). Use true apenas na porta 465 (TLS implícito).
+MAIL_SECURE=false
+MAIL_REQUIRE_TLS=true
+MAIL_IGNORE_TLS=false
 MAIL_USER=example@gmail.com
-MAIL_PASSWORD=your-app-password
-MAIL_DEFAULT_EMAIL=noreply@example.com
-MAIL_DEFAULT_NAME=Api
+MAIL_PASSWORD=your-16-char-app-password
+MAIL_DEFAULT_EMAIL=example@gmail.com
+MAIL_DEFAULT_NAME=Portal Senador Canedo Hoje
+
+# --- Usuário admin criado pelo seed (npm run seed:run:relational) ---
+# Antes era admin@example.com / "secret" hardcoded — endereço inexistente (impedia
+# testar recuperação de senha) e, em produção, credencial padrão conhecida.
+# Use um endereço REAL: é para ele que vai o e-mail de recuperação de senha.
+# O seed falha explicitamente se qualquer um dos dois estiver vazio.
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-me
 
 AUTH_JWT_SECRET=secret
 AUTH_JWT_TOKEN_EXPIRES_IN=15m
 AUTH_REFRESH_SECRET=secret_for_refresh
-AUTH_REFRESH_TOKEN_EXPIRES_IN=3650d
+# Era 3650d (10 anos!), default do boilerplate. Como o refresh token fica
+# acessível ao JavaScript do front (autenticação por Bearer, não por cookie
+# httpOnly), validade de uma década significa que um token vazado hoje ainda
+# vale em 2036. 30 dias equilibra "não deslogar o editor toda semana" com janela
+# de exposição aceitável.
+AUTH_REFRESH_TOKEN_EXPIRES_IN=30d
 AUTH_FORGOT_SECRET=secret_for_forgot
 AUTH_FORGOT_TOKEN_EXPIRES_IN=30m
 AUTH_CONFIRM_EMAIL_SECRET=secret_for_confirm_email

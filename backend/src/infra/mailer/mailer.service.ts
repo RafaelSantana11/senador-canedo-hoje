@@ -9,14 +9,23 @@ import { AllConfigType } from '../config/config.type';
 export class MailerService {
   private readonly transporter: nodemailer.Transporter;
   constructor(private readonly configService: ConfigService<AllConfigType>) {
+    // Tudo vem do ConfigService (envs MAIL_*) — antes host/porta/secure eram
+    // hardcoded no Gmail e o `mail.config.ts` era ignorado. Com isto, apontar
+    // para o maildev em dev ou trocar de provedor é mudança de env, não de
+    // código.
+    const user = configService.get('mail.user', { infer: true });
+    const password = configService.get('mail.password', { infer: true });
+
     this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: configService.get('mail.user', { infer: true }),
-        pass: configService.get('mail.password', { infer: true }),
-      },
+      host: configService.get('mail.host', { infer: true }),
+      port: configService.get('mail.port', { infer: true }),
+      secure: configService.get('mail.secure', { infer: true }),
+      requireTLS: configService.get('mail.requireTLS', { infer: true }),
+      ignoreTLS: configService.get('mail.ignoreTLS', { infer: true }),
+      // Sem credenciais (caso típico do maildev), não manda bloco `auth`:
+      // um `auth` com user/pass vazios faz o nodemailer tentar autenticar e
+      // falhar contra servidores que não pedem login.
+      auth: user ? { user, pass: password } : undefined,
     });
   }
 

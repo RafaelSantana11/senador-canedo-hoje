@@ -22,7 +22,12 @@ services:
       dockerfile: maildev.Dockerfile
     ports:
       - ${MAIL_CLIENT_PORT}:1080
-      - ${MAIL_PORT}:1025
+      # Porta SMTP do maildev no host. NÃO usa ${MAIL_PORT}: desde que o
+      # transporte virou configurável por env, MAIL_PORT é a porta SMTP de SAÍDA
+      # da API (587 no Gmail) — publicar o maildev nela seria confuso e disputaria
+      # a porta com quem já a use. Para mandar e-mail ao maildev, aponte
+      # MAIL_HOST=localhost e MAIL_PORT=1025 (mesmo valor daqui).
+      - ${MAILDEV_SMTP_PORT:-1025}:1025
 
   adminer:
     image: adminer

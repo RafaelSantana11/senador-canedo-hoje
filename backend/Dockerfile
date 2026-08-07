@@ -51,6 +51,14 @@ COPY --from=builder /usr/src/app/package.json ./package.json
 # Copia migrations e seeds (necessários para produção)
 COPY --from=builder /usr/src/app/src/infra/database ./src/infra/database
 
+# Copia os templates de e-mail (.hbs).
+# Sem isto, TODO envio de e-mail quebra em produção com ENOENT: o MailService
+# monta o caminho a partir de app.workingDirectory (= WORKDIR, /usr/src/app) +
+# "src/core/mail/mail-templates/<arquivo>.hbs", e os .hbs não passam pelo
+# `nest build` — não existem em dist/. Funciona no dev (roda a partir do
+# repositório) e falharia só no deploy, que é o pior lugar para descobrir.
+COPY --from=builder /usr/src/app/src/core/mail/mail-templates ./src/core/mail/mail-templates
+
 # Cria o script de entrypoint otimizado
 COPY <<'EOF' /usr/src/app/docker-entrypoint.sh
 #!/bin/bash

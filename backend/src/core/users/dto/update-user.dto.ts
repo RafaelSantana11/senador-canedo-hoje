@@ -1,7 +1,13 @@
-import { PartialType } from '@nestjs/swagger';
+import { OmitType, PartialType } from '@nestjs/swagger';
 import { CreateUserDto } from './create-user.dto';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
+export class UpdateUserDto extends PartialType(
+  // `author` fica de fora: o perfil editorial (bio, isColumnist, slug) é
+  // editado por `PATCH /api/v1/authors/:id`, que tem a própria regra de
+  // autorização (dono ou admin). Aceitá-lo aqui daria dois caminhos de escrita
+  // para o mesmo dado, com regras diferentes.
+  OmitType(CreateUserDto, ['author'] as const),
+) {
   // A classe UpdateUserDto agora herda todos os campos da CreateUserDto
   // como opcionais, graças ao PartialType.
   //

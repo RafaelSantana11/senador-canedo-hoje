@@ -9,10 +9,13 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { MailModule } from '../mail/mail.module';
 import { SessionModule } from '../session/session.module';
 import { UsersModule } from '../users/users.module';
+import { AuthorsModule } from '../authors/authors.module';
 
 @Module({
   imports: [
     UsersModule,
+    // GET /auth/me devolve o Author 1:1 junto do usuário
+    AuthorsModule,
     SessionModule,
     PassportModule,
     MailModule,

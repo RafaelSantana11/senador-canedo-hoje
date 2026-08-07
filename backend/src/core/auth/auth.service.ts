@@ -21,6 +21,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtRefreshPayloadType } from './strategies/types/jwt-refresh-payload.type';
 import { JwtPayloadType } from './strategies/types/jwt-payload.type';
 import { UsersService } from '../users/users.service';
+import { AuthorsService } from '../authors/authors.service';
 import { AllConfigType } from '../../infra/config/config.type';
 import { MailService } from '../mail/mail.service';
 import { RoleEnum } from '../roles/roles.enum';
@@ -36,6 +37,7 @@ export class AuthService {
     private usersService: UsersService,
     private sessionService: SessionService,
     private mailService: MailService,
+    private authorsService: AuthorsService,
     private configService: ConfigService<AllConfigType>,
   ) {}
 
@@ -390,8 +392,21 @@ export class AuthService {
     await this.usersService.update(user.id, user);
   }
 
+  /**
+   * Devolve o usuário logado **com o `Author` 1:1 junto** — o front usa para
+   * exibir quem está logado e, na Parte 4, para pré-preencher o autor ao criar
+   * uma notícia sem depender de uma segunda chamada.
+   */
   async me(userJwtPayload: JwtPayloadType): Promise<NullableType<User>> {
-    return this.usersService.findById(userJwtPayload.id);
+    const user = await this.usersService.findById(userJwtPayload.id);
+
+    if (!user) {
+      return null;
+    }
+
+    user.author = await this.authorsService.findByUserId(user.id);
+
+    return user;
   }
 
   async update(

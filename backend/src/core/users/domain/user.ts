@@ -1,8 +1,9 @@
 import { Exclude, Expose } from 'class-transformer';
 import { Role } from '../../roles/domain/role';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserStatusEnum } from '../infrastructure/persistence/relational/entities/user.entity';
 import { FileType } from 'src/infra/files/domain/file';
+import { Author } from '../../authors/domain/author';
 
 const idType = Number;
 
@@ -59,6 +60,18 @@ export class User {
     type: () => Role,
   })
   role?: Role | null;
+
+  /**
+   * Perfil editorial 1:1. Não é coluna de `user` — é preenchido pelo service
+   * onde o front precisa dele: na resposta do signup (`POST /users`) e em
+   * `GET /auth/me`, para exibir quem está logado e pré-preencher o autor ao
+   * criar notícia (Parte 4).
+   */
+  @ApiPropertyOptional({
+    type: () => Author,
+    nullable: true,
+  })
+  author?: Author | null;
 
   @ApiProperty({
     enum: UserStatusEnum,

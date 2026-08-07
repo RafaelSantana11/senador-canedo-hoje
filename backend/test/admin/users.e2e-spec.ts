@@ -1,19 +1,14 @@
-import { APP_URL, ADMIN_EMAIL, ADMIN_PASSWORD } from '../utils/constants';
+import { APP_URL } from '../utils/constants';
 import request from 'supertest';
 import { RoleEnum } from '../../src/core/roles/roles.enum';
-import { StatusEnum } from '../../src/statuses/statuses.enum';
+import { createUser, loginAsAdmin } from '../utils/create-user';
 
 describe('Users Module', () => {
   const app = APP_URL;
-  let apiToken;
+  let apiToken: string;
 
   beforeAll(async () => {
-    await request(app)
-      .post('/api/v1/auth/email/login')
-      .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
-      .then(({ body }) => {
-        apiToken = body.token;
-      });
+    apiToken = await loginAsAdmin();
   });
 
   describe('Update', () => {
@@ -24,21 +19,11 @@ describe('Users Module', () => {
     const newUserChangedPassword = `new-secret`;
 
     beforeAll(async () => {
-      await request(app)
-        .post('/api/v1/auth/email/register')
-        .send({
-          email: newUserEmail,
-          password: newUserPassword,
-          firstName: `First${Date.now()}`,
-          lastName: 'E2E',
-        });
-
-      await request(app)
-        .post('/api/v1/auth/email/login')
-        .send({ email: newUserEmail, password: newUserPassword })
-        .then(({ body }) => {
-          newUser = body.user;
-        });
+      newUser = await createUser(apiToken, {
+        email: newUserEmail,
+        password: newUserPassword,
+        name: `First ${Date.now()}`,
+      });
     });
 
     describe('User with "Admin" role', () => {
@@ -96,16 +81,33 @@ describe('Users Module', () => {
           .send({
             email: newUserByAdminEmail,
             password: newUserByAdminPassword,
-            firstName: `UserByAdmin${Date.now()}`,
-            lastName: 'E2E',
+            name: `UserByAdmin ${Date.now()}`,
             role: {
               id: RoleEnum.user,
             },
-            status: {
-              id: StatusEnum.active,
-            },
+            status: 'active',
+          })
+          .expect(201)
+          .expect(({ body }) => {
+            expect(body.author).toBeDefined();
+            expect(body.author.userId).toBe(body.id);
+          });
+      });
+
+      // Sem role no payload o usuário nascia com `role: undefined`, que fura o
+      // RolesGuard de formas confusas. Agora o default é explícito.
+      it('should default the role to "user" when omitted: /api/v1/users (POST)', async () => {
+        const created = await request(app)
+          .post(`/api/v1/users`)
+          .auth(apiToken, { type: 'bearer' })
+          .send({
+            email: `no-role.${Date.now()}@example.com`,
+            password: `secret`,
+            name: `Sem Role ${Date.now()}`,
           })
           .expect(201);
+
+        expect(Number(created.body.role.id)).toBe(Number(RoleEnum.user));
       });
 
       describe('Guest', () => {
@@ -122,6 +124,29 @@ describe('Users Module', () => {
             });
         });
       });
+    });
+  });
+
+  describe('Delete', () => {
+    it('should soft delete the author together with the user: /api/v1/users/:id (DELETE)', async () => {
+      const created = await createUser(apiToken, {
+        email: `admin-delete.${Date.now()}@example.com`,
+        password: `secret`,
+        name: `Removido Pelo Admin ${Date.now()}`,
+      });
+
+      await request(app)
+        .get(`/api/v1/authors/${created.author.slug}`)
+        .expect(200);
+
+      await request(app)
+        .delete(`/api/v1/users/${created.id}`)
+        .auth(apiToken, { type: 'bearer' })
+        .expect(204);
+
+      await request(app)
+        .get(`/api/v1/authors/${created.author.slug}`)
+        .expect(404);
     });
   });
 

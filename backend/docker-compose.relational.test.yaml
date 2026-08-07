@@ -28,6 +28,24 @@ services:
       dockerfile: relational.test.Dockerfile
     env_file:
       - env-example-relational
+    environment:
+      # Sobrescreve o bloco de e-mail do env-example-relational, que aponta para
+      # o Gmail: na suíte e2e o destino tem que ser o maildev deste compose, cuja
+      # API REST os testes consultam para ler o link de confirmação
+      # (test/utils/constants.ts). Sem isto, a suíte tentaria autenticar no Gmail
+      # com credenciais de exemplo e falharia com "535 Username and Password not
+      # accepted".
+      MAIL_HOST: maildev
+      MAIL_PORT: 1025
+      MAIL_SECURE: 'false'
+      MAIL_REQUIRE_TLS: 'false'
+      MAIL_IGNORE_TLS: 'true'
+      MAIL_USER: ''
+      MAIL_PASSWORD: ''
+      MAIL_CLIENT_PORT: 1080
+      # Admin do seed: os testes de admin logam com estas credenciais.
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: secret
     volumes:
       - ./src:/usr/src/app/src
       - ./test:/usr/src/app/test
