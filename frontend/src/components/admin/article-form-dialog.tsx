@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import Image from "next/image"
+import { useForm, Controller } from "react-hook-form"
 import {
   Dialog,
   DialogContent,
@@ -61,11 +62,17 @@ export function ArticleFormDialog({
   initial?: AdminArticle | null
   onSubmit: (values: ArticleFormValues) => void
 }) {
-  const [values, setValues] = useState<ArticleFormValues>(empty)
+  const {
+    control,
+    register,
+    handleSubmit,
+    watch,
+    reset,
+  } = useForm<ArticleFormValues>({ defaultValues: empty })
 
   useEffect(() => {
     if (open) {
-      setValues(
+      reset(
         initial
           ? {
               title: initial.title,
@@ -80,16 +87,12 @@ export function ArticleFormDialog({
           : { ...empty, category: categories[0] ?? "" },
       )
     }
-  }, [open, initial, categories])
+  }, [open, initial, categories, reset])
 
-  function set<K extends keyof ArticleFormValues>(key: K, value: ArticleFormValues[K]) {
-    setValues((prev) => ({ ...prev, [key]: value }))
-  }
+  const values = watch()
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!values.title.trim() || !values.category) return
-    onSubmit(values)
+  function handleFormSubmit(data: ArticleFormValues) {
+    onSubmit(data)
     onOpenChange(false)
   }
 
@@ -105,13 +108,12 @@ export function ArticleFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="title">Título</Label>
             <Input
               id="title"
-              value={values.title}
-              onChange={(e) => set("title", e.target.value)}
+              {...register("title")}
               placeholder="Digite a manchete"
               required
             />
@@ -121,8 +123,7 @@ export function ArticleFormDialog({
             <Label htmlFor="excerpt">Resumo</Label>
             <Textarea
               id="excerpt"
-              value={values.excerpt}
-              onChange={(e) => set("excerpt", e.target.value)}
+              {...register("excerpt")}
               placeholder="Breve descrição da notícia"
               rows={3}
             />
@@ -131,26 +132,31 @@ export function ArticleFormDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Categoria</Label>
-              <Select value={values.category} onValueChange={(v) => v && set("category", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="category"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="author">Autor</Label>
               <Input
                 id="author"
-                value={values.author}
-                onChange={(e) => set("author", e.target.value)}
+                {...register("author")}
                 placeholder="Redação"
               />
             </div>
@@ -159,34 +165,43 @@ export function ArticleFormDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Imagem</Label>
-              <Select value={values.image} onValueChange={(v) => v && set("image", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {IMAGE_OPTIONS.map((img) => (
-                    <SelectItem key={img.value} value={img.value}>
-                      {img.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="image"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {IMAGE_OPTIONS.map((img) => (
+                        <SelectItem key={img.value} value={img.value}>
+                          {img.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <Label>Status</Label>
-              <Select
-                value={values.status}
-                onValueChange={(v) => v && set("status", v as AdminArticle["status"])}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Publicado">Publicado</SelectItem>
-                  <SelectItem value="Rascunho">Rascunho</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Publicado">Publicado</SelectItem>
+                      <SelectItem value="Rascunho">Rascunho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
 
@@ -200,15 +215,21 @@ export function ArticleFormDialog({
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={values.urgent}
-              onChange={(e) => set("urgent", e.target.checked)}
-              className="h-4 w-4 rounded border-border accent-[var(--destructive)]"
-            />
-            Marcar como <span className="font-semibold text-destructive">Urgente</span>
-          </label>
+          <Controller
+            control={control}
+            name="urgent"
+            render={({ field }) => (
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-[var(--destructive)]"
+                />
+                Marcar como <span className="font-semibold text-destructive">Urgente</span>
+              </label>
+            )}
+          />
 
           <DialogFooter className="mt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

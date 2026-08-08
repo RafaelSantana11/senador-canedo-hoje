@@ -2,6 +2,7 @@ import { Inter, Merriweather } from "next/font/google"
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Providers } from "@/components/providers"
 import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
 
@@ -60,7 +61,9 @@ export default function RootLayout({
     >
       <body className="font-sans antialiased">
         <Toaster position="top-center" richColors />
-        <ThemeProvider>{children}</ThemeProvider>
+        <Providers>
+          <ThemeProvider>{children}</ThemeProvider>
+        </Providers>
       </body>
     </html>
   )
