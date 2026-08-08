@@ -15,7 +15,7 @@ export function useLogin() {
     mutationFn: (payload: LoginPayload) => loginUser(payload),
     onSuccess: (data) => {
       Cookies.set("refreshToken", data.refreshToken, { expires: 7, path: "/" })
-      setAuth({ token: data.token, refreshToken: data.refreshToken })
+      setAuth({ token: data.token, refreshToken: data.refreshToken, user: data.user })
       router.replace("/admin")
     },
   })

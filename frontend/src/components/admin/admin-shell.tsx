@@ -19,7 +19,9 @@ import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar"
-import { getUser, isAuthenticated, logout, type AdminUser } from "@/lib/admin-auth"
+import Cookies from "js-cookie"
+import { useAuthStore } from "@/stores/useAuthStore"
+import { logoutUser } from "@/features/admin/auth/services/auth-service"
 import { AdminStoreProvider } from "@/components/admin/admin-store"
 
 const nav = [
@@ -32,16 +34,15 @@ const nav = [
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const user = useAuthStore((state) => state.user)
   const [checked, setChecked] = useState(false)
-  const [user, setUser] = useState<AdminUser | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (!Cookies.get("refreshToken")) {
       router.replace("/login")
       return
     }
-    setUser(getUser())
     setChecked(true)
   }, [router])
 
@@ -50,7 +51,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   function handleLogout() {
-    logout()
+    logoutUser().catch(() => {})
+    Cookies.remove("refreshToken", { path: "/" })
+    useAuthStore.getState().logoutLocal()
     router.replace("/login")
   }
 
