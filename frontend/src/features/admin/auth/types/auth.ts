@@ -9,6 +9,23 @@ export type RoleEntity = {
   __entity?: string
 }
 
+export type FileType = {
+  id: string
+  path: string
+}
+
+export type Author = {
+  id: string
+  slug: string
+  bio: string | null
+  isColumnist: boolean
+  userId: number
+  name: string
+  photo: FileType | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type AuthUser = {
   id: number
   email: string
@@ -16,12 +33,14 @@ export type AuthUser = {
   socialId: string | null
   name: string
   legalName: string | null
+  photo: FileType | null
   role: RoleEntity
   status: string
-  trialStartDate: string
+  trialStartDate: string | null
   createdAt: string
   updatedAt: string
   deletedAt: string | null
+  author?: Author | null
 }
 
 export type LoginResponse = {
@@ -29,4 +48,10 @@ export type LoginResponse = {
   token: string
   tokenExpires: number
   user: AuthUser
+}
+
+export type RefreshResponse = {
+  token: string
+  refreshToken: string
+  tokenExpires: number
 }

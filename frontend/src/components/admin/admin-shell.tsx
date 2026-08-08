@@ -19,9 +19,8 @@ import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar"
-import Cookies from "js-cookie"
 import { useAuthStore } from "@/stores/useAuthStore"
-import { logoutUser } from "@/features/admin/auth/services/auth-service"
+import { getMe, logoutUser } from "@/features/admin/auth/services/auth-service"
 import { AdminStoreProvider } from "@/components/admin/admin-store"
 
 const nav = [
@@ -35,16 +34,38 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const user = useAuthStore((state) => state.user)
-  const [checked, setChecked] = useState(false)
+  const refreshToken = useAuthStore((state) => state.refreshToken)
+  const [ready, setReady] = useState(false)
+  const [authError, setAuthError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  function retrySession() {
+    setAuthError(false)
+    setReady(false)
+    setAttempt((a) => a + 1)
+  }
+
   useEffect(() => {
-    if (!Cookies.get("refreshToken")) {
+    if (!refreshToken) {
       router.replace("/login")
       return
     }
-    setChecked(true)
-  }, [router])
+    // Fonte da verdade de quem está logado (traz o `author`). O interceptor do
+    // axios renova o access token antes desta chamada; 401 aqui desloga sozinho.
+    // O painel só desbloqueia depois que a sessão é confirmada, para nada ficar
+    // clicável antes da autenticação.
+    getMe()
+      .then((me) => useAuthStore.getState().setUser(me))
+      .then(() => {
+        setReady(true)
+        setAuthError(false)
+      })
+      .catch(() => {
+        setAuthError(true)
+        setReady(false)
+      })
+  }, [router, refreshToken, attempt])
 
   useEffect(() => {
     setMobileOpen(false)
@@ -52,15 +73,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   function handleLogout() {
     logoutUser().catch(() => {})
-    Cookies.remove("refreshToken", { path: "/" })
     useAuthStore.getState().logoutLocal()
     router.replace("/login")
   }
 
-  if (!checked) {
+  if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+        {authError ? (
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              Não foi possível validar a sessão.
+            </p>
+            <Button variant="outline" onClick={retrySession}>
+              Tentar novamente
+            </Button>
+          </div>
+        ) : (
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+        )}
       </div>
     )
   }
@@ -116,7 +147,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-              EC
+              {user?.name?.slice(0, 2).toUpperCase() ?? "SC"}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 leading-tight">

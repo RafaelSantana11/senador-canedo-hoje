@@ -8,42 +8,69 @@ import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, Newspaper } from "lucide-r
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/admin-auth"
 import { assetPath } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
-import Cookies from "js-cookie"
 import { useLogin } from "../hooks/use-login"
 import type { LoginPayload } from "../types/auth"
+
+type LoginErrorData = {
+  errors?: Record<string, string>
+  message?: string | string[]
+}
+
+type LoginError = {
+  response?: { data?: LoginErrorData }
+}
+
+const FIELD_MESSAGES: Record<string, string> = {
+  notFound: "E-mail não cadastrado.",
+  incorrectPassword: "Senha incorreta.",
+}
 
 export default function LoginPage() {
   const router = useRouter()
   const { mutate, isPending, error } = useLogin()
   const token = useAuthStore((state) => state.token)
+  const refreshToken = useAuthStore((state) => state.refreshToken)
   const [showPassword, setShowPassword] = useState(false)
   const {
     register,
     handleSubmit,
-    setValue,
+    setError,
+    formState: { errors },
   } = useForm<LoginPayload>({
     defaultValues: { email: "", password: "" },
   })
 
   useEffect(() => {
-    if (token || Cookies.get("refreshToken")) router.replace("/admin")
-  }, [router, token])
+    if (token || refreshToken) router.replace("/admin")
+  }, [router, token, refreshToken])
 
-  const errorMessage =
-    error && (error as { response?: { data?: { message?: string } } }).response?.data?.message
-      ? (error as { response?: { data?: { message?: string } } }).response!.data!.message
-      : "E-mail ou senha inválidos. Confira as credenciais."
+  useEffect(() => {
+    if (!error) return
+    const data = (error as LoginError)?.response?.data
+    if (data?.errors) {
+      for (const [field, code] of Object.entries(data.errors)) {
+        setError(field as keyof LoginPayload, {
+          type: "manual",
+          message: FIELD_MESSAGES[code] ?? code,
+        })
+      }
+    }
+  }, [error, setError])
+
+  const generalError = (() => {
+    if (!error) return null
+    const data = (error as LoginError)?.response?.data
+    if (data?.errors) return null
+    if (data?.message) {
+      return Array.isArray(data.message) ? data.message.join(" ") : data.message
+    }
+    return "Não foi possível entrar. Confira as credenciais."
+  })()
 
   function onSubmit(values: LoginPayload) {
     mutate(values)
-  }
-
-  function fillDemo() {
-    setValue("email", DEMO_EMAIL)
-    setValue("password", DEMO_PASSWORD)
   }
 
   return (
@@ -100,7 +127,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">E-mail</Label>
               <div className="relative">
@@ -110,11 +137,14 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="voce@portal.com"
+                  aria-invalid={Boolean(errors.email)}
                   className="pl-9"
-                  {...register("email")}
-                  required
+                  {...register("email", { required: "Informe o e-mail." })}
                 />
               </div>
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -126,9 +156,9 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="••••••••"
+                  aria-invalid={Boolean(errors.password)}
                   className="px-9"
-                  {...register("password")}
-                  required
+                  {...register("password", { required: "Informe a senha." })}
                 />
                 <button
                   type="button"
@@ -139,11 +169,14 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
             </div>
 
-            {error && (
+            {generalError && (
               <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {errorMessage}
+                {generalError}
               </p>
             )}
 
@@ -152,23 +185,6 @@ export default function LoginPage() {
               {isPending ? "Entrando..." : "Entrar no painel"}
             </Button>
           </form>
-
-          <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm">
-            <p className="font-medium text-foreground">Credenciais de demonstração</p>
-            <p className="mt-1 text-muted-foreground">
-              E-mail: <span className="font-mono text-foreground">{DEMO_EMAIL}</span>
-            </p>
-            <p className="text-muted-foreground">
-              Senha: <span className="font-mono text-foreground">{DEMO_PASSWORD}</span>
-            </p>
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="mt-2 text-sm font-semibold text-secondary underline-offset-4 hover:underline"
-            >
-              Preencher automaticamente
-            </button>
-          </div>
         </div>
       </section>
     </main>
