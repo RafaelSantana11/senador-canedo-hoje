@@ -16,6 +16,12 @@ import {
   Minus,
   Upload,
 } from "lucide-react"
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
 
 interface FormatterToolbarProps {
   onBold: () => void
@@ -33,10 +39,72 @@ interface FormatterToolbarProps {
   onHr: () => void
 }
 
+/* ─── Small reusable toolbar button ──────────────────────────────── */
+
+function ToolbarButton({
+  onClick,
+  label,
+  shortcut,
+  children,
+}: {
+  onClick: () => void
+  label: string
+  shortcut?: string
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            className="group/tbtn relative inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-all duration-150 hover:bg-primary/8 hover:text-primary active:scale-95"
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>
+        <span className="font-medium">{label}</span>
+        {shortcut && (
+          <kbd className="ml-1.5 inline-flex items-center rounded border border-background/20 bg-background/10 px-1 py-px font-mono text-[10px] text-background/70">
+            {shortcut}
+          </kbd>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/* ─── Separator ──────────────────────────────────────────────────── */
+
+function ToolbarSeparator() {
+  return <span className="mx-1 h-5 w-px bg-border/60" aria-hidden />
+}
+
+/* ─── Group with optional label ──────────────────────────────────── */
+
+function ToolbarGroup({
+  label,
+  children,
+}: {
+  label?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0">
+      {label && <span className="toolbar-group-label">{label}</span>}
+      <div className="flex items-center gap-0.5">{children}</div>
+    </div>
+  )
+}
+
+/* ─── Main Toolbar ───────────────────────────────────────────────── */
+
 export function FormatterToolbar(props: FormatterToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const btn =
-    "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -60,144 +128,95 @@ export function FormatterToolbar(props: FormatterToolbarProps) {
   }
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 p-1"
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onH1}
-        aria-label="Título 1"
-        title="Título 1 (H1)"
+    <TooltipProvider delay={300} closeDelay={100}>
+      <div
+        className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-border bg-muted/30 px-2 py-1.5 backdrop-blur-sm"
+        onMouseDown={(e) => e.preventDefault()}
       >
-        <Heading1 className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onH2}
-        aria-label="Título 2"
-        title="Título 2 (H2)"
-      >
-        <Heading2 className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onH3}
-        aria-label="Título 3"
-        title="Título 3 (H3)"
-      >
-        <Heading3 className="h-4 w-4" />
-      </button>
+        {/* ─── Headings ──────────────────────────────────── */}
+        <ToolbarGroup label="Título">
+          <ToolbarButton onClick={props.onH1} label="Título 1" shortcut="H1">
+            <Heading1 className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onH2} label="Título 2" shortcut="H2">
+            <Heading2 className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onH3} label="Título 3" shortcut="H3">
+            <Heading3 className="h-4 w-4" />
+          </ToolbarButton>
+        </ToolbarGroup>
 
-      <span className="mx-1 h-5 w-px bg-border" />
+        <ToolbarSeparator />
 
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onBold}
-        aria-label="Negrito"
-        title="Negrito"
-      >
-        <Bold className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onItalic}
-        aria-label="Itálico"
-        title="Itálico"
-      >
-        <Italic className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onCode}
-        aria-label="Código"
-        title="Código inline"
-      >
-        <Code className="h-4 w-4" />
-      </button>
+        {/* ─── Inline formatting ─────────────────────────── */}
+        <ToolbarGroup label="Texto">
+          <ToolbarButton onClick={props.onBold} label="Negrito" shortcut="⌘B">
+            <Bold className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={props.onItalic}
+            label="Itálico"
+            shortcut="⌘I"
+          >
+            <Italic className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={props.onCode}
+            label="Código inline"
+            shortcut="⌘E"
+          >
+            <Code className="h-4 w-4" />
+          </ToolbarButton>
+        </ToolbarGroup>
 
-      <span className="mx-1 h-5 w-px bg-border" />
+        <ToolbarSeparator />
 
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onLink}
-        aria-label="Link"
-        title="Inserir link"
-      >
-        <LinkIcon className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onImage}
-        aria-label="Imagem URL"
-        title="Inserir imagem por URL"
-      >
-        <ImageIcon className="h-4 w-4" />
-      </button>
+        {/* ─── Inserir ───────────────────────────────────── */}
+        <ToolbarGroup label="Inserir">
+          <ToolbarButton
+            onClick={props.onLink}
+            label="Inserir link"
+            shortcut="⌘K"
+          >
+            <LinkIcon className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onImage} label="Imagem por URL">
+            <ImageIcon className="h-4 w-4" />
+          </ToolbarButton>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
-      <button
-        type="button"
-        className={btn}
-        onClick={() => fileInputRef.current?.click()}
-        aria-label="Upload de imagem"
-        title="Upload de imagem do computador/celular"
-      >
-        <Upload className="h-4 w-4" />
-      </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <ToolbarButton
+            onClick={() => fileInputRef.current?.click()}
+            label="Upload de imagem"
+          >
+            <Upload className="h-4 w-4" />
+          </ToolbarButton>
+        </ToolbarGroup>
 
-      <span className="mx-1 h-5 w-px bg-border" />
+        <ToolbarSeparator />
 
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onUl}
-        aria-label="Lista"
-        title="Lista não ordenada"
-      >
-        <List className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onOl}
-        aria-label="Lista numerada"
-        title="Lista ordenada"
-      >
-        <ListOrdered className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onQuote}
-        aria-label="Citação"
-        title="Citação (blockquote)"
-      >
-        <Quote className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        className={btn}
-        onClick={props.onHr}
-        aria-label="Linha horizontal"
-        title="Linha horizontal"
-      >
-        <Minus className="h-4 w-4" />
-      </button>
-    </div>
+        {/* ─── Blocos ────────────────────────────────────── */}
+        <ToolbarGroup label="Bloco">
+          <ToolbarButton onClick={props.onUl} label="Lista não ordenada">
+            <List className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onOl} label="Lista ordenada">
+            <ListOrdered className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onQuote} label="Citação">
+            <Quote className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onHr} label="Linha horizontal">
+            <Minus className="h-4 w-4" />
+          </ToolbarButton>
+        </ToolbarGroup>
+      </div>
+    </TooltipProvider>
   )
 }

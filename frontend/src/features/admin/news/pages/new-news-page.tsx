@@ -2,9 +2,19 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, Maximize2, Minimize2, Newspaper } from "lucide-react"
+import {
+  ChevronRight,
+  Eye,
+  FileText,
+  Maximize2,
+  Minimize2,
+  Newspaper,
+  Pencil,
+  Send,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/admin/admin-shell"
@@ -127,6 +137,27 @@ export default function NewNewsPage() {
 
   return (
     <div className="p-6 lg:p-10">
+      {/* ─── Breadcrumb ─────────────────────────────────────── */}
+      <nav className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <button
+          onClick={() => router.push("/admin")}
+          className="transition-colors hover:text-foreground"
+        >
+          Painel
+        </button>
+        <ChevronRight className="h-3 w-3" />
+        <button
+          onClick={() => router.push("/admin/noticias")}
+          className="transition-colors hover:text-foreground"
+        >
+          Notícias
+        </button>
+        <ChevronRight className="h-3 w-3" />
+        <span className="font-medium text-foreground">
+          {isEditing ? "Editar" : "Nova matéria"}
+        </span>
+      </nav>
+
       <PageHeader
         title={isEditing ? "Editar notícia" : "Nova notícia"}
         description={
@@ -136,10 +167,28 @@ export default function NewNewsPage() {
         }
         action={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSaveDraft}>
-              {isEditing ? "Salvar como rascunho" : "Salvar rascunho"}
+            {isEditing && (
+              <Badge
+                variant="secondary"
+                className="mr-1 gap-1 border border-primary/20 bg-primary/5 text-primary"
+              >
+                <Pencil className="h-3 w-3" />
+                Editando
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              onClick={handleSaveDraft}
+              className="gap-1.5"
+            >
+              <FileText className="h-4 w-4" />
+              {isEditing ? "Salvar rascunho" : "Rascunho"}
             </Button>
-            <Button onClick={handlePublish}>
+            <Button
+              onClick={handlePublish}
+              className="gap-1.5 bg-gradient-to-r from-primary to-secondary shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30"
+            >
+              <Send className="h-4 w-4" />
               {isEditing ? "Salvar e publicar" : "Publicar"}
             </Button>
           </div>
@@ -195,10 +244,11 @@ export default function NewNewsPage() {
             />
 
             {/* ─── PREVIEW CARD ───────────────────────────────────────── */}
-            <Card className="p-5">
+            <Card className="overflow-hidden p-0">
               <Tabs value={previewTab} onValueChange={setPreviewTab}>
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/20 px-5 py-3">
+                  <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                    <Eye className="h-3.5 w-3.5" />
                     Pré-visualização
                   </h2>
                   <div className="flex items-center gap-1.5">
@@ -224,39 +274,41 @@ export default function NewNewsPage() {
                   </div>
                 </div>
 
-                <TabsContent value="card" className="mt-4">
-                  <ArticlePreview
-                    title={title}
-                    category={category}
-                    author={author}
-                    image={image}
-                    urgent={urgent}
-                    content={content}
-                  />
-                </TabsContent>
-
-                <TabsContent value="page" className="mt-4">
-                  <div
-                    className={cn(
-                      "overflow-auto rounded-lg border border-border bg-background",
-                      "max-h-[600px]"
-                    )}
-                  >
-                    <ArticlePage
-                      preview
-                      article={{
-                        title,
-                        category,
-                        author,
-                        image,
-                        urgent,
-                        content,
-                        excerpt: generateExcerpt(content),
-                        createdAt: createdAt || undefined,
-                      }}
+                <div className="p-5">
+                  <TabsContent value="card" className="mt-0">
+                    <ArticlePreview
+                      title={title}
+                      category={category}
+                      author={author}
+                      image={image}
+                      urgent={urgent}
+                      content={content}
                     />
-                  </div>
-                </TabsContent>
+                  </TabsContent>
+
+                  <TabsContent value="page" className="mt-0">
+                    <div
+                      className={cn(
+                        "overflow-auto rounded-lg border border-border bg-background",
+                        "max-h-[600px]"
+                      )}
+                    >
+                      <ArticlePage
+                        preview
+                        article={{
+                          title,
+                          category,
+                          author,
+                          image,
+                          urgent,
+                          content,
+                          excerpt: generateExcerpt(content),
+                          createdAt: createdAt || undefined,
+                        }}
+                      />
+                    </div>
+                  </TabsContent>
+                </div>
               </Tabs>
             </Card>
           </div>

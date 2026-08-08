@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import { Sparkles } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { FileText, Sparkles, Type } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -104,11 +104,15 @@ export function NewsForm({
     setContent(md)
   }
 
-  function exec(command: string, value?: string) {
-    restoreSelection()
-    document.execCommand(command, false, value)
-    syncFromEditor()
-  }
+  const exec = useCallback(
+    (command: string, value?: string) => {
+      restoreSelection()
+      document.execCommand(command, false, value)
+      syncFromEditor()
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
 
   function insertHtml(html: string) {
     restoreSelection()
@@ -142,6 +146,50 @@ export function NewsForm({
   function insertHorizontalRule() {
     insertHtml("<hr />")
   }
+
+  function handleCode() {
+    const range = savedRangeRef.current
+    const text =
+      range && !range.collapsed ? escapeAttr(range.toString()) : "código"
+    insertHtml(`<code>${text}</code>`)
+  }
+
+  /* ─── Keyboard shortcuts ────────────────────────────────────────── */
+
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+
+    function handleKeyDown(e: KeyboardEvent) {
+      const isMeta = e.metaKey || e.ctrlKey
+      if (!isMeta) return
+
+      switch (e.key.toLowerCase()) {
+        case "b":
+          e.preventDefault()
+          exec("bold")
+          break
+        case "i":
+          e.preventDefault()
+          exec("italic")
+          break
+        case "e":
+          e.preventDefault()
+          handleCode()
+          break
+        case "k":
+          e.preventDefault()
+          insertLink()
+          break
+      }
+    }
+
+    el.addEventListener("keydown", handleKeyDown)
+    return () => el.removeEventListener("keydown", handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exec])
+
+  /* ─── Auto-format helper ────────────────────────────────────────── */
 
   function autoFormat() {
     const raw = content.replace(/\r\n/g, "\n")
@@ -203,9 +251,27 @@ export function NewsForm({
     toast.success("Conteúdo formatado automaticamente.")
   }
 
+  /* ─── Content stats ─────────────────────────────────────────────── */
+
+  const stats = useMemo(() => {
+    const text = content.trim()
+    if (!text) return { chars: 0, words: 0 }
+    const chars = text.length
+    const words = text.split(/\s+/).filter(Boolean).length
+    return { chars, words }
+  }, [content])
+
   return (
-    <Card className="p-5">
-      <div className="grid gap-4">
+    <Card className="overflow-hidden p-0">
+      {/* ─── Section: Article info ────────────────────────── */}
+      <div className="border-b border-border bg-muted/20 px-5 py-3">
+        <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          <FileText className="h-3.5 w-3.5" />
+          Informações da matéria
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-5">
         <div className="grid gap-2">
           <Label htmlFor="title">Título</Label>
           <Input
@@ -213,6 +279,7 @@ export function NewsForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Título da matéria"
+            className="text-base font-medium"
           />
         </div>
 
@@ -245,7 +312,7 @@ export function NewsForm({
 
         <ImageUploader value={image} onChange={setImage} label="Imagem de capa" />
 
-        <div className="flex items-center justify-between rounded-md border border-border p-3">
+        <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3.5">
           <div>
             <Label htmlFor="urgent" className="text-sm">
               Marcar como urgente
@@ -256,65 +323,80 @@ export function NewsForm({
           </div>
           <Switch id="urgent" checked={urgent} onCheckedChange={setUrgent} />
         </div>
+      </div>
 
-        <Separator />
+      <Separator />
 
-        {/* ─── Rich text editor ─────────────────────────────── */}
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between">
-            <Label>Conteúdo</Label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={autoFormat}
-              className="h-8 gap-1.5"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Formatar automaticamente
-            </Button>
+      {/* ─── Section: Content editor ──────────────────────── */}
+      <div className="border-b border-border bg-muted/20 px-5 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            <Type className="h-3.5 w-3.5" />
+            Conteúdo
           </div>
-          <div className="rounded-md border border-border">
-            <FormatterToolbar
-              onBold={() => exec("bold")}
-              onItalic={() => exec("italic")}
-              onH1={() => exec("formatBlock", "h1")}
-              onH2={() => exec("formatBlock", "h2")}
-              onH3={() => exec("formatBlock", "h3")}
-              onQuote={() => exec("formatBlock", "blockquote")}
-              onUl={() => exec("insertUnorderedList")}
-              onOl={() => exec("insertOrderedList")}
-              onLink={insertLink}
-              onImage={insertImage}
-              onUploadImage={insertUploadedImage}
-              onCode={() => {
-                const range = savedRangeRef.current
-                const text =
-                  range && !range.collapsed ? escapeAttr(range.toString()) : "código"
-                insertHtml(`<code>${text}</code>`)
-              }}
-              onHr={insertHorizontalRule}
-            />
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              role="textbox"
-              aria-multiline="true"
-              data-placeholder="Escreva o conteúdo da matéria..."
-              onSelect={saveSelection}
-              onBlur={() => {
-                saveSelection()
-                syncFromEditor()
-              }}
-              onInput={syncFromEditor}
-              className="min-h-[320px] resize-y overflow-auto rounded-none border-0 px-3 py-2 text-sm leading-relaxed text-foreground focus:outline-none focus-visible:ring-0"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Use os botões de formatação para editar a matéria. O conteúdo é
-            salvo e publicado automaticamente em Markdown.
-          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={autoFormat}
+            className="h-7 gap-1.5 text-xs"
+          >
+            <Sparkles className="h-3 w-3" />
+            Formatar
+          </Button>
         </div>
+      </div>
+
+      <div className="relative">
+        <FormatterToolbar
+          onBold={() => exec("bold")}
+          onItalic={() => exec("italic")}
+          onH1={() => exec("formatBlock", "h1")}
+          onH2={() => exec("formatBlock", "h2")}
+          onH3={() => exec("formatBlock", "h3")}
+          onQuote={() => exec("formatBlock", "blockquote")}
+          onUl={() => exec("insertUnorderedList")}
+          onOl={() => exec("insertOrderedList")}
+          onLink={insertLink}
+          onImage={insertImage}
+          onUploadImage={insertUploadedImage}
+          onCode={handleCode}
+          onHr={insertHorizontalRule}
+        />
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          data-placeholder="Escreva o conteúdo da matéria..."
+          onSelect={saveSelection}
+          onBlur={() => {
+            saveSelection()
+            syncFromEditor()
+          }}
+          onInput={syncFromEditor}
+          className="editor-area min-h-[360px] resize-y overflow-auto px-4 py-3 text-sm leading-relaxed text-foreground transition-shadow focus:outline-none focus-visible:ring-0"
+        />
+
+        {/* ─── Status bar ─────────────────────────────────── */}
+        <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-1.5 text-[11px] text-muted-foreground">
+          <span>
+            {stats.words} {stats.words === 1 ? "palavra" : "palavras"} ·{" "}
+            {stats.chars} {stats.chars === 1 ? "caractere" : "caracteres"}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Markdown
+          </span>
+        </div>
+      </div>
+
+      <div className="px-5 pb-4 pt-2">
+        <p className="text-xs text-muted-foreground">
+          Use a barra de formatação ou atalhos de teclado (⌘B, ⌘I, ⌘E, ⌘K).
+          O conteúdo é salvo em Markdown.
+        </p>
       </div>
     </Card>
   )

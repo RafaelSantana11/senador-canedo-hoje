@@ -111,4 +111,91 @@
   content: attr(data-placeholder);
   color: var(--color-muted-foreground);
   pointer-events: none;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ─── Tooltip arrow ──────────────────────────────────────────────── */
+
+.tooltip-arrow {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  background: var(--color-foreground);
+  z-index: -1;
+}
+
+/* ─── Rich text editor enhanced styles ───────────────────────────── */
+
+.editor-area {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.editor-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.editor-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-area::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+}
+
+.editor-area::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+
+.editor-area::selection,
+.editor-area *::selection {
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.editor-area h1,
+.editor-area h2,
+.editor-area h3 {
+  font-family: var(--font-heading), var(--font-sans), system-ui, sans-serif;
+}
+
+.editor-area img {
+  border-radius: 0.5rem;
+  max-width: 100%;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.editor-area blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 1rem;
+  color: var(--color-muted-foreground);
+  font-style: italic;
+}
+
+.editor-area code {
+  background: var(--color-muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.8em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.editor-area hr {
+  border: none;
+  border-top: 2px solid var(--color-border);
+  margin: 1rem 0;
+}
+
+/* ─── Formatter toolbar button group label ───────────────────────── */
+
+.toolbar-group-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted-foreground);
+  opacity: 0.6;
+  line-height: 1;
+  padding-bottom: 1px;
 }
