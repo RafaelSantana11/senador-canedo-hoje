@@ -31,7 +31,7 @@ export default function NewNewsPage() {
   const searchParams = useSearchParams()
   const editId = searchParams.get("edit")
 
-  const { ready, categories, articles, addArticle, updateArticle } =
+  const { ready, categoryNames, articles, addArticle, updateArticle } =
     useAdminStore()
 
   const [title, setTitle] = useState("")
@@ -232,7 +232,7 @@ export default function NewNewsPage() {
               setTitle={setTitle}
               category={category}
               setCategory={setCategory}
-              categories={categories}
+              categories={categoryNames}
               author={author}
               setAuthor={setAuthor}
               image={image}

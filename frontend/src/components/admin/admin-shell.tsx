@@ -4,13 +4,20 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   FilePlus2,
+  FolderTree,
+  Hash,
+  Image as ImageIcon,
   LayoutDashboard,
   LogOut,
   Megaphone,
   Menu,
   Newspaper,
+  Settings,
+  Users,
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -22,11 +29,19 @@ import {
 import { getUser, isAuthenticated, logout, type AdminUser } from "@/lib/admin-auth"
 import { AdminStoreProvider } from "@/components/admin/admin-store"
 
-const nav = [
+const mainNav = [
   { href: "/admin", label: "Painel", icon: LayoutDashboard },
   { href: "/admin/newNews", label: "Publicar", icon: FilePlus2 },
   { href: "/admin/noticias", label: "Notícias", icon: Newspaper },
   { href: "/admin/publicidades", label: "Publicidades", icon: Megaphone },
+]
+
+const settingsSubNav = [
+  { href: "/admin/configuracoes", label: "Visão Geral", icon: Settings, exact: true },
+  { href: "/admin/configuracoes/categorias", label: "Categorias", icon: FolderTree },
+  { href: "/admin/configuracoes/autores", label: "Autores", icon: Users },
+  { href: "/admin/configuracoes/tags", label: "Tags", icon: Hash },
+  { href: "/admin/configuracoes/midias", label: "Mídias", icon: ImageIcon },
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -35,6 +50,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false)
   const [user, setUser] = useState<AdminUser | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -47,6 +63,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMobileOpen(false)
+    if (pathname.startsWith("/admin/configuracoes")) {
+      setSettingsOpen(true)
+    }
   }, [pathname])
 
   function handleLogout() {
@@ -62,6 +81,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     )
   }
 
+  const isSettingsActive = pathname.startsWith("/admin/configuracoes")
+
   const sidebar = (
     <div className="flex h-full flex-col bg-primary text-primary-foreground">
       <div className="flex items-center gap-3 px-6 py-5">
@@ -74,8 +95,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-        {nav.map((item) => {
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-4 overflow-y-auto">
+        {mainNav.map((item) => {
           const active =
             item.href === "/admin"
               ? pathname === "/admin"
@@ -96,6 +117,54 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
           )
         })}
+
+        {/* Configurações with Sub-menu */}
+        <div className="mt-1">
+          <button
+            onClick={() => setSettingsOpen((prev) => !prev)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              isSettingsActive
+                ? "bg-primary-foreground/15 text-primary-foreground"
+                : "text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground",
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="h-4.5 w-4.5" />
+              <span>Configurações</span>
+            </div>
+            {settingsOpen ? (
+              <ChevronDown className="h-4 w-4 opacity-70" />
+            ) : (
+              <ChevronRight className="h-4 w-4 opacity-70" />
+            )}
+          </button>
+
+          {settingsOpen && (
+            <div className="mt-1 flex flex-col gap-1 pl-4 border-l border-primary-foreground/15 ml-3">
+              {settingsSubNav.map((sub) => {
+                const active = sub.exact
+                  ? pathname === sub.href
+                  : pathname === sub.href || pathname.startsWith(`${sub.href}/`)
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-secondary text-secondary-foreground font-semibold shadow-xs"
+                        : "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                    )}
+                  >
+                    <sub.icon className="h-3.5 w-3.5" />
+                    {sub.label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </nav>
 
       <div className="px-3 pb-3">
