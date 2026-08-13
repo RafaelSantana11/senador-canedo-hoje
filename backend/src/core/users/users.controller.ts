@@ -10,6 +10,7 @@ import {
   Query,
   HttpStatus,
   HttpCode,
+  Request,
   SerializeOptions,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -126,6 +127,12 @@ export class UsersController {
     return this.usersService.update(id, updateProfileDto);
   }
 
+  /**
+   * Recusa com `422 cannotDeleteSelf` quando o admin tenta se excluir (o
+   * caminho para isso é `DELETE /api/v1/auth/me`) e com `422
+   * cannotDeleteLastAdmin` quando o alvo é o último admin — sem admin, ninguém
+   * mais consegue criar ou promover usuário.
+   */
   @Delete(':id')
   @ApiParam({
     name: 'id',
@@ -133,7 +140,7 @@ export class UsersController {
     required: true,
   })
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: User['id']): Promise<void> {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: User['id'], @Request() request): Promise<void> {
+    return this.usersService.removeByAdmin(id, request.user);
   }
 }

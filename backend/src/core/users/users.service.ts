@@ -294,6 +294,12 @@ export class UsersService {
         });
       }
 
+      // Trava contra lockout: rebaixar o último admin deixaria o sistema sem
+      // ninguém capaz de criar ou promover usuário.
+      if (String(updateUserDto.role.id) !== String(RoleEnum.admin)) {
+        await this.assertNotLastAdmin(id, 'cannotDemoteLastAdmin', 'role');
+      }
+
       role = {
         id: updateUserDto.role.id,
       };
@@ -336,13 +342,74 @@ export class UsersService {
   /**
    * Soft delete do `User` **e** do `Author` juntos, na mesma transação — os dois
    * caminhos de saída (`DELETE /users/:id` e `DELETE /auth/me`) passam por aqui.
-   * Soft delete nos dois porque `Author` será referenciado por `News` e `File`
-   * na Parte 4: apagar de verdade quebraria histórico de conteúdo publicado.
+   * Soft delete nos dois porque `Author` é referenciado por `News` (autor da
+   * notícia): apagar de verdade quebraria histórico de conteúdo publicado.
+   *
+   * A trava do último admin fica aqui, e não no controller, justamente para
+   * valer nos dois caminhos — um admin que se autoexclui por `DELETE /auth/me`
+   * causaria o mesmo lockout que sendo excluído por outro.
    */
   async remove(id: User['id']): Promise<void> {
+    await this.assertNotLastAdmin(id, 'cannotDeleteLastAdmin', 'id');
+
     await this.dataSource.transaction(async (entityManager) => {
       await this.authorsService.softDeleteByUserId(id, entityManager);
       await this.usersRepository.remove(id, entityManager);
     });
+  }
+
+  /**
+   * `DELETE /api/v1/users/:id` — exclusão feita por um admin sobre outra pessoa.
+   * O caminho para sair da própria conta é `DELETE /api/v1/auth/me`; bloquear a
+   * autoexclusão aqui evita que o admin se remova por engano ao administrar a
+   * lista de usuários.
+   */
+  async removeByAdmin(
+    id: User['id'],
+    requester: Pick<User, 'id'>,
+  ): Promise<void> {
+    if (String(id) === String(requester.id)) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          id: 'cannotDeleteSelf',
+        },
+      });
+    }
+
+    return this.remove(id);
+  }
+
+  /**
+   * Recusa a operação quando o alvo é o último admin restante.
+   *
+   * Há uma janela de corrida teórica entre a contagem e a escrita (dois admins
+   * se excluindo simultaneamente), que não é tratada com lock: o custo de
+   * serializar toda remoção de usuário não se paga contra um cenário que exige
+   * duas requisições no mesmo instante em um painel com poucos administradores.
+   */
+  private async assertNotLastAdmin(
+    id: User['id'],
+    errorCode: 'cannotDeleteLastAdmin' | 'cannotDemoteLastAdmin',
+    field: 'id' | 'role',
+  ): Promise<void> {
+    const target = await this.usersRepository.findById(id);
+
+    // Usuário inexistente não é alvo de trava nenhuma — quem chama decide o que
+    // fazer com isso (o delete atual é idempotente e devolve 204).
+    if (!target || String(target.role?.id) !== String(RoleEnum.admin)) {
+      return;
+    }
+
+    const admins = await this.usersRepository.countAdmins();
+
+    if (admins <= 1) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          [field]: errorCode,
+        },
+      });
+    }
   }
 }

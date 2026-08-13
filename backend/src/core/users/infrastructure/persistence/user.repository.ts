@@ -43,4 +43,15 @@ export abstract class UserRepository {
   ): Promise<User | null>;
 
   abstract remove(id: User['id'], entityManager?: EntityManager): Promise<void>;
+
+  /**
+   * Quantos admins ainda existem. Base das travas contra lockout: sem admin,
+   * ninguém consegue criar nem promover usuário e a recuperação só acontece
+   * mexendo no banco à mão.
+   *
+   * Conta só os não soft-deletados. `status` fica de fora de propósito:
+   * `AuthService.validateLogin` não verifica `status`, então um admin
+   * `inactive` continua logando e continua sendo saída de recuperação.
+   */
+  abstract countAdmins(): Promise<number>;
 }

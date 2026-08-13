@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { UsersModule } from './core/users/users.module';
 import { AuthModule } from './core/auth/auth.module';
 import { AuthorsModule } from './core/authors/authors.module';
+import { CategoriesModule } from './core/categories/categories.module';
+import { NewsModule } from './core/news/news.module';
+import { TagsModule } from './core/tags/tags.module';
 import databaseConfig from './infra/database/config/database.config';
 import authConfig from './core/auth/config/auth.config';
 import appConfig from './infra/config/app.config';
@@ -80,6 +83,9 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
     FilesModule,
     AuthModule,
     AuthorsModule,
+    CategoriesModule,
+    TagsModule,
+    NewsModule,
     SessionModule,
     MailModule,
     MailerModule,

@@ -9,6 +9,7 @@ import { User } from '../../../../domain/user';
 import { UserRepository } from '../../user.repository';
 import { UserMapper } from '../mappers/user.mapper';
 import { IPaginationOptions } from '../../../../../../utils/types/pagination-options';
+import { RoleEnum } from '../../../../../roles/roles.enum';
 
 @Injectable()
 export class UsersRelationalRepository implements UserRepository {
@@ -129,5 +130,13 @@ export class UsersRelationalRepository implements UserRepository {
 
   async remove(id: User['id'], entityManager?: EntityManager): Promise<void> {
     await this.repo(entityManager).softDelete(id);
+  }
+
+  async countAdmins(): Promise<number> {
+    // `count` já ignora soft-deletados (sem `withDeleted`), que é o que a trava
+    // precisa: admin removido não recupera acesso de ninguém.
+    return this.usersRepository.count({
+      where: { role: { id: RoleEnum.admin } },
+    });
   }
 }

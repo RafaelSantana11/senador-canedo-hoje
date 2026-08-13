@@ -1,8 +1,8 @@
 # Auth
 
-> ## ⚠️ Ajustes deste projeto (2026-08-07) — leia antes do restante
+> ## ⚠️ Ajustes deste projeto (2026-08-07, atualizado em 2026-08-13) — leia antes do restante
 >
-> Este documento vem do boilerplate original. Quatro coisas divergem aqui, e o que
+> Este documento vem do boilerplate original. Cinco coisas divergem aqui, e o que
 > está escrito neste bloco prevalece sobre o resto do arquivo.
 >
 > **1. Login social está DESABILITADO.** O projeto trabalha só com e-mail + senha.
@@ -38,8 +38,19 @@
 > descrito em [Refresh token flow](#refresh-token-flow) continua valendo
 > integralmente.
 >
-> Contrato completo das rotas para o frontend: **`INTEGRACAO-AUTH-AUTHORS.md`**,
-> na raiz do repositório.
+> **5. Existem travas contra lockout de admin (2026-08-13).** `DELETE /api/v1/users/:id`
+> **não** apaga o próprio usuário autenticado (`422 cannotDeleteSelf`; para isso
+> existe `DELETE /api/v1/auth/me`), e nenhum caminho remove ou rebaixa o **último
+> admin** — `DELETE /api/v1/users/:id` e `DELETE /api/v1/auth/me` respondem
+> `422 cannotDeleteLastAdmin`, e `PATCH /api/v1/users/:id` trocando a role responde
+> `422 cannotDemoteLastAdmin`. Sem admin ninguém consegue criar nem promover
+> usuário, e a recuperação só aconteceria mexendo no banco à mão. Note que
+> `DELETE /auth/me` passou a poder falhar com `422`. Detalhes em
+> [News, Categories e Tags](news-categories-tags.md#travas-contra-lockout-de-admin).
+>
+> Contrato completo das rotas para o frontend: **`INTEGRACAO-AUTH-AUTHORS.md`**
+> (auth e autores) e **`INTEGRACAO-NEWS-CATEGORIES-TAGS.md`** (conteúdo), na raiz
+> do repositório.
 
 ## Table of Contents <!-- omit in toc -->
 
