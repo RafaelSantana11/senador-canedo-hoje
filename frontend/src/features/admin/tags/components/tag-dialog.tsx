@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import type { Tag } from "@/components/admin/admin-store"
+import { useEffect } from "react"
+import { useForm } from "react-hook-form"
+import type { Daum } from "@/features/admin/tags/types/tag"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -20,7 +21,6 @@ export type TagFormValues = {
   slug: string
   color: string
   description: string
-  usageCount: number
 }
 
 const PRESET_COLORS = [
@@ -34,6 +34,22 @@ const PRESET_COLORS = [
   "#64748b", // Slate
 ]
 
+const emptyValues: TagFormValues = {
+  name: "",
+  slug: "",
+  color: "#8b5cf6",
+  description: "",
+}
+
+function slugify(val: string) {
+  return val
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+}
+
 export function TagDialog({
   open,
   onOpenChange,
@@ -42,52 +58,41 @@ export function TagDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  initial?: Tag | null
+  initial?: Daum | null
   onSubmit: (values: TagFormValues) => void
 }) {
-  const [name, setName] = useState("")
-  const [slug, setSlug] = useState("")
-  const [color, setColor] = useState("#8b5cf6")
-  const [description, setDescription] = useState("")
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<TagFormValues>({ defaultValues: emptyValues })
+
+  const color = watch("color")
 
   useEffect(() => {
-    if (initial) {
-      setName(initial.name)
-      setSlug(initial.slug)
-      setColor(initial.color || "#8b5cf6")
-      setDescription(initial.description || "")
-    } else {
-      setName("")
-      setSlug("")
-      setColor("#8b5cf6")
-      setDescription("")
-    }
-  }, [initial, open])
-
-  function handleNameChange(val: string) {
-    setName(val)
-    if (!initial) {
-      setSlug(
-        val
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9\s-]/g, "")
-          .replace(/\s+/g, "-")
+    if (open) {
+      reset(
+        initial
+          ? {
+              name: initial.name,
+              slug: initial.slug,
+              description: initial.description || "",
+              color: initial.color || "#8b5cf6",
+            }
+          : emptyValues,
       )
     }
-  }
+  }, [open, initial, reset])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-
+  function handleFormSubmit(values: TagFormValues) {
     onSubmit({
-      name: name.trim(),
-      slug: slug.trim() || name.toLowerCase().replace(/\s+/g, "-"),
-      color,
-      description: description.trim(),
-      usageCount: initial ? initial.usageCount : 0,
+      name: values.name.trim(),
+      slug: values.slug.trim() || slugify(values.name),
+      color: values.color,
+      description: values.description.trim(),
     })
     onOpenChange(false)
   }
@@ -102,16 +107,23 @@ export function TagDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(handleFormSubmit)} noValidate className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="tag-name">Nome da Tag</Label>
             <Input
               id="tag-name"
               placeholder="Ex: Eleições 2026, Taxa Selic, Reforma Tributária"
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              required
+              aria-invalid={Boolean(errors.name)}
+              {...register("name", {
+                required: "Informe o nome da tag.",
+                onChange: (e) => {
+                  if (!initial) {
+                    setValue("slug", slugify(e.target.value))
+                  }
+                },
+              })}
             />
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -119,10 +131,13 @@ export function TagDialog({
             <Input
               id="tag-slug"
               placeholder="ex: eleicoes-2026"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              required
+              aria-invalid={Boolean(errors.slug)}
+              {...register("slug", {
+                required: "Informe o slug da tag.",
+                minLength: { value: 2, message: "O slug deve ter ao menos 2 caracteres." },
+              })}
             />
+            {errors.slug && <p className="text-sm text-destructive">{errors.slug.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -131,8 +146,7 @@ export function TagDialog({
               id="tag-desc"
               rows={3}
               placeholder="Descreva brevemente sobre o que se trata esta tag..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("description")}
             />
           </div>
 
@@ -143,7 +157,7 @@ export function TagDialog({
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setColor(c)}
+                  onClick={() => setValue("color", c)}
                   className={`h-7 w-7 rounded-full transition-transform ${
                     color === c ? "ring-2 ring-foreground ring-offset-2 scale-110" : "opacity-80 hover:opacity-100"
                   }`}
@@ -153,8 +167,8 @@ export function TagDialog({
               ))}
               <Input
                 type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
+                aria-label="Cor personalizada"
+                {...register("color")}
                 className="h-8 w-10 cursor-pointer p-0.5"
               />
             </div>

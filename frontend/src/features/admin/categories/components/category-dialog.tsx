@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import type { Category } from "@/components/admin/admin-store"
+import { useEffect } from "react"
+import { Controller, useForm } from "react-hook-form"
+import type { Daum } from "@/features/admin/categories/types/category"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -36,6 +37,23 @@ const PRESET_COLORS = [
   "#64748b", // Slate
 ]
 
+const emptyValues: CategoryFormValues = {
+  name: "",
+  slug: "",
+  description: "",
+  color: "#3b82f6",
+  active: true,
+}
+
+function slugify(val: string) {
+  return val
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+}
+
 export function CategoryDialog({
   open,
   onOpenChange,
@@ -44,55 +62,44 @@ export function CategoryDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  initial?: Category | null
+  initial?: Daum | null
   onSubmit: (values: CategoryFormValues) => void
 }) {
-  const [name, setName] = useState("")
-  const [slug, setSlug] = useState("")
-  const [description, setDescription] = useState("")
-  const [color, setColor] = useState("#3b82f6")
-  const [active, setActive] = useState(true)
+  const {
+    control,
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<CategoryFormValues>({ defaultValues: emptyValues })
+
+  const color = watch("color")
 
   useEffect(() => {
-    if (initial) {
-      setName(initial.name)
-      setSlug(initial.slug)
-      setDescription(initial.description || "")
-      setColor(initial.color || "#3b82f6")
-      setActive(initial.active)
-    } else {
-      setName("")
-      setSlug("")
-      setDescription("")
-      setColor("#3b82f6")
-      setActive(true)
-    }
-  }, [initial, open])
-
-  function handleNameChange(val: string) {
-    setName(val)
-    if (!initial) {
-      setSlug(
-        val
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9\s-]/g, "")
-          .replace(/\s+/g, "-")
+    if (open) {
+      reset(
+        initial
+          ? {
+              name: initial.name,
+              slug: initial.slug,
+              description: initial.description || "",
+              color: initial.color || "#3b82f6",
+              active: initial.active,
+            }
+          : emptyValues,
       )
     }
-  }
+  }, [open, initial, reset])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-
+  function handleFormSubmit(values: CategoryFormValues) {
     onSubmit({
-      name: name.trim(),
-      slug: slug.trim() || name.toLowerCase().replace(/\s+/g, "-"),
-      description: description.trim(),
-      color,
-      active,
+      name: values.name.trim(),
+      slug: values.slug.trim() || slugify(values.name),
+      description: values.description.trim(),
+      color: values.color,
+      active: values.active,
     })
     onOpenChange(false)
   }
@@ -107,16 +114,23 @@ export function CategoryDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(handleFormSubmit)} noValidate className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="cat-name">Nome da Categoria</Label>
             <Input
               id="cat-name"
               placeholder="Ex: Política, Economia, Esportes"
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              required
+              aria-invalid={Boolean(errors.name)}
+              {...register("name", {
+                required: "Informe o nome da categoria.",
+                onChange: (e) => {
+                  if (!initial) {
+                    setValue("slug", slugify(e.target.value))
+                  }
+                },
+              })}
             />
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -124,10 +138,13 @@ export function CategoryDialog({
             <Input
               id="cat-slug"
               placeholder="ex: politica-e-governo"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              required
+              aria-invalid={Boolean(errors.slug)}
+              {...register("slug", {
+                required: "Informe o slug da categoria.",
+                minLength: { value: 2, message: "O slug deve ter ao menos 2 caracteres." },
+              })}
             />
+            {errors.slug && <p className="text-sm text-destructive">{errors.slug.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -136,8 +153,7 @@ export function CategoryDialog({
               id="cat-desc"
               rows={3}
               placeholder="Breve descrição do tipo de matérias nesta categoria..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("description")}
             />
           </div>
 
@@ -148,7 +164,7 @@ export function CategoryDialog({
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setColor(c)}
+                  onClick={() => setValue("color", c)}
                   className={`h-7 w-7 rounded-full transition-transform ${
                     color === c ? "ring-2 ring-foreground ring-offset-2 scale-110" : "opacity-80 hover:opacity-100"
                   }`}
@@ -158,8 +174,8 @@ export function CategoryDialog({
               ))}
               <Input
                 type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
+                aria-label="Cor personalizada"
+                {...register("color")}
                 className="h-8 w-10 cursor-pointer p-0.5"
               />
             </div>
@@ -174,10 +190,12 @@ export function CategoryDialog({
                 Categorias ativas aparecem na navegação principal do portal.
               </p>
             </div>
-            <Switch
-              id="cat-active"
-              checked={active}
-              onCheckedChange={setActive}
+            <Controller
+              control={control}
+              name="active"
+              render={({ field }) => (
+                <Switch id="cat-active" checked={field.value} onCheckedChange={field.onChange} />
+              )}
             />
           </div>
 

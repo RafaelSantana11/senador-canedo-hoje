@@ -4,7 +4,11 @@ import { useMemo, useState } from "react"
 import { Hash, Pencil, Plus, Search, Tag as TagIcon, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/admin/admin-shell"
-import { useAdminStore, type Tag } from "@/components/admin/admin-store"
+import { useTags } from "@/features/admin/tags/hooks/use-tags"
+import { useCreateTag } from "@/features/admin/tags/hooks/use-create-tag"
+import { useUpdateTag } from "@/features/admin/tags/hooks/use-update-tag"
+import { useDeleteTag } from "@/features/admin/tags/hooks/use-delete-tag"
+import type { Daum } from "@/features/admin/tags/types/tag"
 import { TagDialog, type TagFormValues } from "@/features/admin/tags/components/tag-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,12 +33,17 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function TagsPage() {
-  const { ready, tags, addTag, updateTag, deleteTag } = useAdminStore()
+  const { data, isLoading } = useTags()
+  const createTag = useCreateTag()
+  const updateTag = useUpdateTag()
+  const deleteTag = useDeleteTag()
+
+  const tags = useMemo(() => data?.data ?? [], [data])
 
   const [search, setSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<Tag | null>(null)
-  const [toDelete, setToDelete] = useState<Tag | null>(null)
+  const [editing, setEditing] = useState<Daum | null>(null)
+  const [toDelete, setToDelete] = useState<Daum | null>(null)
 
   const filteredTags = useMemo(() => {
     return tags.filter(
@@ -45,33 +54,56 @@ export default function TagsPage() {
     )
   }, [tags, search])
 
-  if (!ready) return null
+  if (isLoading) return null
 
   function openCreate() {
     setEditing(null)
     setFormOpen(true)
   }
 
-  function openEdit(tag: Tag) {
+  function openEdit(tag: Daum) {
     setEditing(tag)
     setFormOpen(true)
   }
 
   function handleSubmit(values: TagFormValues) {
     if (editing) {
-      updateTag(editing.id, values)
-      toast.success(`Tag "${values.name}" atualizada.`)
+      updateTag.mutate(
+        { id: editing.id, payload: values },
+        {
+          onSuccess: () => {
+            toast.success(`Tag "${values.name}" atualizada.`)
+            setFormOpen(false)
+          },
+          onError: () => {
+            toast.error("Não foi possível atualizar a tag.")
+          },
+        },
+      )
     } else {
-      addTag(values)
-      toast.success(`Tag "${values.name}" criada.`)
+      createTag.mutate(values, {
+        onSuccess: () => {
+          toast.success(`Tag "${values.name}" criada.`)
+          setFormOpen(false)
+        },
+        onError: () => {
+          toast.error("Não foi possível criar a tag.")
+        },
+      })
     }
   }
 
   function confirmDelete() {
     if (toDelete) {
-      deleteTag(toDelete.id)
-      toast.success(`Tag "${toDelete.name}" excluída.`)
-      setToDelete(null)
+      deleteTag.mutate(toDelete.id, {
+        onSuccess: () => {
+          toast.success(`Tag "${toDelete.name}" excluída.`)
+          setToDelete(null)
+        },
+        onError: () => {
+          toast.error("Não foi possível excluir a tag.")
+        },
+      })
     }
   }
 

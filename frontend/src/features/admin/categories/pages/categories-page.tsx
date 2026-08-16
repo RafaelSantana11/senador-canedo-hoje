@@ -4,7 +4,11 @@ import { useMemo, useState } from "react"
 import { FolderTree, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/admin/admin-shell"
-import { useAdminStore, type Category } from "@/components/admin/admin-store"
+import { useCategories } from "@/features/admin/categories/hooks/use-categories"
+import { useCreateCategory } from "@/features/admin/categories/hooks/use-create-category"
+import { useUpdateCategory } from "@/features/admin/categories/hooks/use-update-category"
+import { useDeleteCategory } from "@/features/admin/categories/hooks/use-delete-category"
+import type { Daum } from "@/features/admin/categories/types/category"
 import { CategoryDialog, type CategoryFormValues } from "@/features/admin/categories/components/category-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,23 +34,18 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function CategoriesPage() {
-  const { ready, categories, articles, addCategory, updateCategory, deleteCategory, toggleCategory } =
-    useAdminStore()
+  const { data, isLoading } = useCategories()
+  const createCategory = useCreateCategory()
+  const updateCategory = useUpdateCategory()
+  const deleteCategory = useDeleteCategory()
+
+  const categories = useMemo(() => data?.data ?? [], [data])
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
   const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<Category | null>(null)
-  const [toDelete, setToDelete] = useState<Category | null>(null)
-
-  // Map category counts
-  const categoryArticleCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    articles.forEach((a) => {
-      counts[a.category] = (counts[a.category] || 0) + 1
-    })
-    return counts
-  }, [articles])
+  const [editing, setEditing] = useState<Daum | null>(null)
+  const [toDelete, setToDelete] = useState<Daum | null>(null)
 
   const filteredCategories = useMemo(() => {
     return categories.filter((cat) => {
@@ -63,33 +62,56 @@ export default function CategoriesPage() {
     })
   }, [categories, search, statusFilter])
 
-  if (!ready) return null
+  if (isLoading) return null
 
   function openCreate() {
     setEditing(null)
     setFormOpen(true)
   }
 
-  function openEdit(cat: Category) {
+  function openEdit(cat: Daum) {
     setEditing(cat)
     setFormOpen(true)
   }
 
   function handleSubmit(values: CategoryFormValues) {
     if (editing) {
-      updateCategory(editing.id, values)
-      toast.success(`Categoria "${values.name}" atualizada com sucesso.`)
+      updateCategory.mutate(
+        { id: editing.id, payload: values },
+        {
+          onSuccess: () => {
+            toast.success(`Categoria "${values.name}" atualizada com sucesso.`)
+            setFormOpen(false)
+          },
+          onError: () => {
+            toast.error("Não foi possível atualizar a categoria.")
+          },
+        },
+      )
     } else {
-      addCategory(values)
-      toast.success(`Categoria "${values.name}" criada com sucesso.`)
+      createCategory.mutate(values, {
+        onSuccess: () => {
+          toast.success(`Categoria "${values.name}" criada com sucesso.`)
+          setFormOpen(false)
+        },
+        onError: () => {
+          toast.error("Não foi possível criar a categoria.")
+        },
+      })
     }
   }
 
   function confirmDelete() {
     if (toDelete) {
-      deleteCategory(toDelete.id)
-      toast.success(`Categoria "${toDelete.name}" removida.`)
-      setToDelete(null)
+      deleteCategory.mutate(toDelete.id, {
+        onSuccess: () => {
+          toast.success(`Categoria "${toDelete.name}" removida.`)
+          setToDelete(null)
+        },
+        onError: () => {
+          toast.error("Não foi possível excluir a categoria.")
+        },
+      })
     }
   }
 
@@ -176,7 +198,7 @@ export default function CategoriesPage() {
             </TableHeader>
             <TableBody>
               {filteredCategories.map((cat) => {
-                const articleCount = categoryArticleCounts[cat.name] || 0
+                const articleCount = cat.newsCount
                 return (
                   <TableRow key={cat.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">
@@ -204,8 +226,17 @@ export default function CategoriesPage() {
                         <Switch
                           checked={cat.active}
                           onCheckedChange={() => {
-                            toggleCategory(cat.id)
-                            toast.info(`Status da categoria "${cat.name}" alterado.`)
+                            updateCategory.mutate(
+                              { id: cat.id, payload: { active: !cat.active } },
+                              {
+                                onSuccess: () => {
+                                  toast.info(`Status da categoria "${cat.name}" alterado.`)
+                                },
+                                onError: () => {
+                                  toast.error("Não foi possível alterar o status da categoria.")
+                                },
+                              },
+                            )
                           }}
                         />
                         <span className="text-xs font-medium">

@@ -6,25 +6,33 @@ import Image from "next/image"
 import {
   ChevronDown,
   ChevronUp,
-  GripVertical,
   Pencil,
   Plus,
   Search,
   Trash2,
   Layout,
   List,
-  Eye,
   X,
   Move,
   Info,
 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/admin/admin-shell"
-import { useAdminStore, type AdminArticle } from "@/components/admin/admin-store"
+import { useNews } from "@/features/admin/news/hooks/use-news"
+import { useUpdateNews } from "@/features/admin/news/hooks/use-update-news"
+import { useDeleteNews } from "@/features/admin/news/hooks/use-delete-news"
+import { useUpdateNewsPosition, type NewsPatch } from "@/features/admin/news/hooks/use-update-news-position"
+import {
+  buildNewsConfig,
+  newsToRow,
+  readPositionOrder,
+  type NewsPosition,
+  type NewsRow,
+} from "@/features/admin/news/types/news"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -54,17 +62,15 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function ArticlesPage() {
-  const {
-    ready,
-    articles,
-    deleteArticle,
-    toggleArticleStatus,
-    moveArticle,
-    updateArticlePosition,
-  } = useAdminStore()
+  const { data, isLoading } = useNews({ limit: 50 })
+  const updateNews = useUpdateNews()
+  const deleteNews = useDeleteNews()
+  const updatePosition = useUpdateNewsPosition()
+
+  const rows = useMemo(() => (data?.data ?? []).map(newsToRow), [data])
 
   const [query, setQuery] = useState("")
-  const [toDelete, setToDelete] = useState<AdminArticle | null>(null)
+  const [toDelete, setToDelete] = useState<NewsRow | null>(null)
   const [activeTab, setActiveTab] = useState("list")
 
   const isFiltering = query.trim().length > 0
@@ -72,66 +78,117 @@ export default function ArticlesPage() {
   // Filter and sort articles for list view
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return articles
-    return articles.filter(
+    if (!q) return rows
+    return rows.filter(
       (a) =>
         a.title.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
     )
-  }, [articles, query])
+  }, [rows, query])
 
   // Get articles assigned to specific sections
   const topoArticle = useMemo(
-    () => articles.find((a) => a.position === "topo" && a.status === "Publicado"),
-    [articles]
+    () => rows.find((a) => a.position === "topo" && a.status === "Publicado"),
+    [rows]
   )
   const destaqueArticle = useMemo(
-    () => articles.find((a) => a.position === "destaque" && a.status === "Publicado"),
-    [articles]
+    () => rows.find((a) => a.position === "destaque" && a.status === "Publicado"),
+    [rows]
   )
   const feedArticles = useMemo(
-    () => articles.filter((a) => a.position === "feed" && a.status === "Publicado"),
-    [articles]
+    () => rows.filter((a) => a.position === "feed" && a.status === "Publicado"),
+    [rows]
   )
   const lateralArticles = useMemo(
-    () => articles.filter((a) => a.position === "lateral" && a.status === "Publicado"),
-    [articles]
+    () => rows.filter((a) => a.position === "lateral" && a.status === "Publicado"),
+    [rows]
   )
   const rodapeArticle = useMemo(
-    () => articles.find((a) => a.position === "rodape" && a.status === "Publicado"),
-    [articles]
+    () => rows.find((a) => a.position === "rodape" && a.status === "Publicado"),
+    [rows]
   )
 
   // Unplaced or general published articles available to be positioned
   const unplacedArticles = useMemo(() => {
-    return articles.filter(
+    return rows.filter(
       (a) =>
         a.status === "Publicado" &&
         (!a.position || a.position === "normal")
     )
-  }, [articles])
+  }, [rows])
 
-  if (!ready) return null
+  if (isLoading) return null
 
-  function confirmDelete() {
-    if (toDelete) {
-      deleteArticle(toDelete.id)
-      toast.success("Notícia excluída.")
-      setToDelete(null)
+  /* ─── Position handlers ─────────────────────────────────────────── */
+
+  function handlePositionChange(id: string, position: NewsPosition) {
+    const target = rows.find((r) => r.id === id)
+    if (!target || target.position === position) return
+
+    const patches: NewsPatch[] = []
+
+    // Slots exclusivos (destaque, topo, rodape): rebaixa o ocupante atual.
+    const exclusive: NewsPosition[] = ["destaque", "topo", "rodape"]
+    if (exclusive.includes(position)) {
+      rows.forEach((r) => {
+        if (r.position === position && r.id !== id) {
+          patches.push({
+            id: r.id,
+            payload: { config: buildNewsConfig(r.config, "normal") },
+          })
+        }
+      })
     }
-  }
 
-  function handleToggle(article: AdminArticle) {
-    toggleArticleStatus(article.id)
-    const next = article.status === "Publicado" ? "Rascunho" : "Publicado"
-    toast.success(
-      next === "Publicado"
-        ? `"${article.title}" ativada.`
-        : `"${article.title}" desativada.`
-    )
+    const config = buildNewsConfig(target.config, position)
+    if (position === "feed" || position === "lateral") {
+      const slotOrders = rows
+        .filter((r) => r.position === position && r.id !== id)
+        .map((r) => readPositionOrder(r.config))
+      config.positionOrder = slotOrders.length ? Math.max(...slotOrders) + 1 : 0
+    }
+    patches.push({ id, payload: { config } })
+
+    updatePosition.mutate(patches, {
+      onSuccess: () => {
+        toast.success(
+          position === "normal"
+            ? "Notícia movida para o acervo."
+            : "Posição de layout atualizada."
+        )
+      },
+      onError: () => {
+        toast.error("Não foi possível atualizar a posição.")
+      },
+    })
   }
 
   function handleMove(id: string, direction: "up" | "down") {
-    moveArticle(id, direction)
+    const row = rows.find((r) => r.id === id)
+    if (!row) return
+
+    if (row.position !== "feed" && row.position !== "lateral") {
+      toast.info("Reordenação manual vale apenas para os slots Feed Central e Barra Lateral.")
+      return
+    }
+
+    const slot = rows
+      .filter((r) => r.position === row.position)
+      .sort((a, b) => readPositionOrder(a.config) - readPositionOrder(b.config))
+    const idx = slot.findIndex((r) => r.id === id)
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1
+    if (idx < 0 || swapIdx < 0 || swapIdx >= slot.length) return
+
+    const neighbor = slot[swapIdx]
+    updatePosition.mutate(
+      [
+        { id, payload: { config: { ...row.config, positionOrder: readPositionOrder(neighbor.config) } } },
+        { id: neighbor.id, payload: { config: { ...neighbor.config, positionOrder: readPositionOrder(row.config) } } },
+      ],
+      {
+        onSuccess: () => toast.success("Ordem atualizada."),
+        onError: () => toast.error("Não foi possível reordenar."),
+      }
+    )
   }
 
   // Drag and drop handlers
@@ -139,13 +196,45 @@ export default function ArticlesPage() {
     e.dataTransfer.setData("text/plain", id)
   }
 
-  function handleDrop(e: React.DragEvent, targetPosition: AdminArticle["position"]) {
+  function handleDrop(e: React.DragEvent, targetPosition: NewsRow["position"]) {
     e.preventDefault()
     const id = e.dataTransfer.getData("text/plain")
     if (!id || !targetPosition) return
 
-    updateArticlePosition(id, targetPosition)
-    toast.success("Notícia posicionada com sucesso.")
+    handlePositionChange(id, targetPosition)
+  }
+
+  function confirmDelete() {
+    if (toDelete) {
+      deleteNews.mutate(toDelete.id, {
+        onSuccess: () => {
+          toast.success(`Notícia "${toDelete.title}" arquivada.`)
+          setToDelete(null)
+        },
+        onError: () => {
+          toast.error("Não foi possível arquivar a notícia.")
+        },
+      })
+    }
+  }
+
+  function handleToggle(row: NewsRow) {
+    const next = row.status === "Publicado" ? "draft" : "published"
+    updateNews.mutate(
+      { id: row.id, payload: { status: next } },
+      {
+        onSuccess: () => {
+          toast.success(
+            next === "published"
+              ? `"${row.title}" ativada.`
+              : `"${row.title}" desativada.`
+          )
+        },
+        onError: () => {
+          toast.error("Não foi possível alterar o status.")
+        },
+      }
+    )
   }
 
   return (
@@ -193,7 +282,7 @@ export default function ArticlesPage() {
             <div className="flex items-center gap-2 rounded-lg bg-accent/40 p-3 text-xs text-muted-foreground">
               <Info className="h-4 w-4 text-primary shrink-0" />
               <span>
-                Use as setas na coluna <b>Ordem</b> para reordenar a prioridade geral das notícias.
+                Use as setas na coluna <b>Ordem</b> para reordenar o feed central e a barra lateral.
               </span>
             </div>
           )}
@@ -272,8 +361,7 @@ export default function ArticlesPage() {
                         <Select
                           value={a.position || "normal"}
                           onValueChange={(val) => {
-                            updateArticlePosition(a.id, val as any)
-                            toast.success("Posição de layout atualizada.")
+                            handlePositionChange(a.id, val as NewsPosition)
                           }}
                         >
                           <SelectTrigger className="h-8 w-32 text-xs">
@@ -310,7 +398,7 @@ export default function ArticlesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <Link href={`/admin/newNews?edit=${a.id}`}>
+                          <Link href={`/admin/newNews?edit=${a.slug}`}>
                             <Button
                               size="icon"
                               variant="ghost"
@@ -389,8 +477,7 @@ export default function ArticlesPage() {
                           <Select
                             value={a.position || "normal"}
                             onValueChange={(val) => {
-                              updateArticlePosition(a.id, val as any)
-                              toast.success("Posição alterada")
+                              handlePositionChange(a.id, val as NewsPosition)
                             }}
                           >
                             <SelectTrigger className="h-5 w-24 px-1 text-[9px] bg-background">
@@ -480,7 +567,7 @@ export default function ArticlesPage() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => updateArticlePosition(topoArticle.id, "normal")}
+                          onClick={() => handlePositionChange(topoArticle.id, "normal")}
                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
                           aria-label="Remover"
                         >
@@ -517,7 +604,7 @@ export default function ArticlesPage() {
                               size="sm"
                               variant="destructive"
                               className="h-7 px-2.5 text-xs gap-1"
-                              onClick={() => updateArticlePosition(destaqueArticle.id, "normal")}
+                              onClick={() => handlePositionChange(destaqueArticle.id, "normal")}
                             >
                               <X className="h-3 w-3" /> Remover
                             </Button>
@@ -592,7 +679,7 @@ export default function ArticlesPage() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => updateArticlePosition(art.id, "normal")}
+                                onClick={() => handlePositionChange(art.id, "normal")}
                                 className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
                               >
                                 <X className="h-3 w-3" />
@@ -630,7 +717,7 @@ export default function ArticlesPage() {
                                   {art.category}
                                 </span>
                                 <button
-                                  onClick={() => updateArticlePosition(art.id, "normal")}
+                                  onClick={() => handlePositionChange(art.id, "normal")}
                                   className="text-muted-foreground hover:text-destructive rounded hover:bg-muted p-0.5"
                                   aria-label="Remover"
                                 >
@@ -679,7 +766,7 @@ export default function ArticlesPage() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => updateArticlePosition(rodapeArticle.id, "normal")}
+                          onClick={() => handlePositionChange(rodapeArticle.id, "normal")}
                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
                           aria-label="Remover"
                         >
@@ -709,10 +796,11 @@ export default function ArticlesPage() {
       <AlertDialog open={!!toDelete} onOpenChange={(v) => !v && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir notícia?</AlertDialogTitle>
+            <AlertDialogTitle>Arquivar notícia?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A matéria &quot;{toDelete?.title}&quot; será
-              removida permanentemente.
+              Esta ação arquiva a matéria &quot;{toDelete?.title}&quot;: ela sai do ar
+              nas rotas públicas, mas continua disponível no painel e pode ser
+              republicada a qualquer momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -721,7 +809,7 @@ export default function ArticlesPage() {
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              Arquivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

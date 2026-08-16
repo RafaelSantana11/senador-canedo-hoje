@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronRight,
@@ -18,8 +18,19 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/admin/admin-shell"
-import { useAdminStore } from "@/components/admin/admin-store"
 import { cn } from "@/lib/utils"
+
+import { useCategories } from "@/features/admin/categories/hooks/use-categories"
+import { useNewsBySlug } from "@/features/admin/news/hooks/use-news-by-slug"
+import { useCreateNews } from "@/features/admin/news/hooks/use-create-news"
+import { useUpdateNews } from "@/features/admin/news/hooks/use-update-news"
+import { uploadCover } from "@/features/admin/news/services/files-service"
+import {
+  readUrgent,
+  type News,
+  type NewsCategory,
+  type NewsPayload,
+} from "@/features/admin/news/types/news"
 
 import { NewsForm } from "@/components/admin/news-editor/news-form"
 import { ArticlePreview } from "@/components/admin/news-editor/article-preview"
@@ -29,82 +40,126 @@ import { ArticlePage } from "@/features/admin/news/components/article-page"
 export default function NewNewsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const editId = searchParams.get("edit")
+  const editSlug = searchParams.get("edit")
 
-  const { ready, categoryNames, articles, addArticle, updateArticle } =
-    useAdminStore()
+  const { data: categoriesData } = useCategories()
+  const categories = useMemo(() => categoriesData?.data ?? [], [categoriesData])
+  const categoryNames = useMemo(() => categories.map((c) => c.name), [categories])
 
-  const [title, setTitle] = useState("")
-  const [category, setCategory] = useState<string>("Geral")
-  const [author, setAuthor] = useState("")
-  const [image, setImage] = useState("")
-  const [urgent, setUrgent] = useState(false)
-  const [content, setContent] = useState("")
-  const [createdAt, setCreatedAt] = useState("")
-  const [loaded, setLoaded] = useState(false)
+  const { data: news, isLoading, error } = useNewsBySlug(editSlug)
+
+  // Missing news on edit → back to the list
+  useEffect(() => {
+    if (editSlug && error) {
+      toast.error("Notícia não encontrada.")
+      router.push("/admin/noticias")
+    }
+  }, [editSlug, error, router])
+
+  if (isLoading || (!editSlug && !categoriesData)) return null
+
+  return (
+    <NewsEditor
+      key={news?.id ?? "new"}
+      news={news ?? null}
+      categories={categories}
+      categoryNames={categoryNames}
+    />
+  )
+}
+
+function NewsEditor({
+  news,
+  categories,
+  categoryNames,
+}: {
+  news: News | null
+  categories: NewsCategory[]
+  categoryNames: string[]
+}) {
+  const router = useRouter()
+
+  const createNews = useCreateNews()
+  const updateNews = useUpdateNews()
+
+  const isEditing = Boolean(news)
+
+  const [title, setTitle] = useState(news?.title ?? "")
+  const [category, setCategory] = useState(news?.category.name ?? categoryNames[0] ?? "")
+  const [author] = useState(news?.author.name ?? "Redação")
+  const [image, setImage] = useState(news?.cover?.path ?? "")
+  const [coverId] = useState<string | null>(news?.cover?.id ?? null)
+  const [config] = useState<Record<string, unknown> | null>(news?.config ?? null)
+  const [urgent, setUrgent] = useState(news ? readUrgent(news.config) : false)
+  const [content, setContent] = useState(news?.body ?? "")
+  const [createdAt] = useState(news?.createdAt ?? "")
   const [previewTab, setPreviewTab] = useState("card")
   const [expanded, setExpanded] = useState(false)
 
-  // Load article data when editing
-  useEffect(() => {
-    if (!ready || loaded) return
-
-    if (editId) {
-      const article = articles.find((a) => a.id === editId)
-      if (article) {
-        setTitle(article.title)
-        setCategory(article.category)
-        setAuthor(article.author)
-        setImage(article.image)
-        setUrgent(article.urgent)
-        setContent(article.content || article.excerpt || "")
-        setCreatedAt(article.createdAt)
-        setLoaded(true)
-      } else {
-        toast.error("Notícia não encontrada.")
-        router.push("/admin/noticias")
-      }
-    } else {
-      setContent("")
-      setCreatedAt("")
-      setLoaded(true)
-    }
-  }, [ready, editId, articles, loaded, router])
-
-  if (!ready || !loaded) return null
-
-  const isEditing = !!editId
-
   /* ─── Save / Publish Handlers ───────────────────────────────────── */
 
-  function handleSaveDraft() {
+  function categoryId(): { id: string } {
+    const found = categories.find((c) => c.name === category)
+    if (found) return { id: found.id }
+    return { id: categories[0]?.id ?? "" }
+  }
+
+  function buildConfig(): Record<string, unknown> {
+    return { ...(config ?? {}), urgent }
+  }
+
+  async function resolveCover(): Promise<{ id: string } | null> {
+    if (!image) return null
+    if (image.startsWith("data:")) {
+      const blob = await fetch(image).then((r) => r.blob())
+      const file = new File([blob], "capa.png", { type: "image/png" })
+      const uploaded = await uploadCover(file)
+      return { id: uploaded.id }
+    }
+    return coverId ? { id: coverId } : null
+  }
+
+  function guardCategory() {
+    if (!categories.length) {
+      toast.error("Nenhuma categoria cadastrada. Cadastre uma antes de salvar.")
+      return false
+    }
+    return true
+  }
+
+  async function handleSaveDraft() {
     if (!title.trim()) {
       toast.error("Informe um título para salvar o rascunho.")
       return
     }
+    if (!guardCategory()) return
 
-    const data = {
-      title,
-      excerpt: generateExcerpt(content),
-      content,
-      category,
-      image: image || "/news/hero-congress.png",
-      author: author || "Redação",
-      status: "Rascunho" as const,
-      urgent,
-    }
+    try {
+      const cover = await resolveCover()
+      const payload: NewsPayload = {
+        title: title.trim(),
+        summary: generateExcerpt(content),
+        body: content,
+        status: "draft",
+        category: categoryId(),
+        cover,
+        config: buildConfig(),
+      }
 
-    if (isEditing && editId) {
-      updateArticle(editId, data)
-      toast.success("Rascunho atualizado.")
-    } else {
-      addArticle(data)
-      toast.success("Rascunho salvo com sucesso.")
+      if (isEditing && news) {
+        await updateNews.mutateAsync({ id: news.id, payload })
+        toast.success("Rascunho atualizado.")
+      } else {
+        await createNews.mutateAsync(payload)
+        toast.success("Rascunho salvo com sucesso.")
+      }
+      router.push("/admin/noticias")
+    } catch {
+      toast.error("Não foi possível salvar o rascunho.")
     }
-    router.push("/admin/noticias")
   }
 
-  function handlePublish() {
+  async function handlePublish() {
     if (!title.trim()) {
       toast.error("Informe um título.")
       return
@@ -113,26 +168,31 @@ export default function NewNewsPage() {
       toast.error("O conteúdo está vazio.")
       return
     }
+    if (!guardCategory()) return
 
-    const data = {
-      title,
-      excerpt: generateExcerpt(content),
-      content,
-      category,
-      image: image || "/news/hero-congress.png",
-      author: author || "Redação",
-      status: "Publicado" as const,
-      urgent,
-    }
+    try {
+      const cover = await resolveCover()
+      const payload: NewsPayload = {
+        title: title.trim(),
+        summary: generateExcerpt(content),
+        body: content,
+        status: "published",
+        category: categoryId(),
+        cover,
+        config: buildConfig(),
+      }
 
-    if (isEditing && editId) {
-      updateArticle(editId, data)
-      toast.success("Notícia atualizada com sucesso.")
-    } else {
-      addArticle(data)
-      toast.success("Notícia publicada com sucesso.")
+      if (isEditing && news) {
+        await updateNews.mutateAsync({ id: news.id, payload })
+        toast.success("Notícia atualizada com sucesso.")
+      } else {
+        await createNews.mutateAsync(payload)
+        toast.success("Notícia publicada com sucesso.")
+      }
+      router.push("/admin/noticias")
+    } catch {
+      toast.error("Não foi possível publicar a notícia.")
     }
-    router.push("/admin/noticias")
   }
 
   return (
@@ -233,8 +293,6 @@ export default function NewNewsPage() {
               category={category}
               setCategory={setCategory}
               categories={categoryNames}
-              author={author}
-              setAuthor={setAuthor}
               image={image}
               setImage={setImage}
               urgent={urgent}

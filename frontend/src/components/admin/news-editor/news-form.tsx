@@ -34,8 +34,6 @@ interface NewsFormProps {
   category: string
   setCategory: (val: string) => void
   categories: string[]
-  author: string
-  setAuthor: (val: string) => void
   image: string
   setImage: (val: string) => void
   urgent: boolean
@@ -50,8 +48,6 @@ export function NewsForm({
   category,
   setCategory,
   categories,
-  author,
-  setAuthor,
   image,
   setImage,
   urgent,
@@ -300,12 +296,11 @@ export function NewsForm({
             </Select>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="author">Autor</Label>
+            <Label>Autor</Label>
             <Input
-              id="author"
-              value={author}
-              onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Nome do autor"
+              value="Você (definido pelo usuário logado)"
+              disabled
+              className="text-muted-foreground"
             />
           </div>
         </div>
