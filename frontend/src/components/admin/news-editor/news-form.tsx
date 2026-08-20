@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { FileText, Sparkles, Type } from "lucide-react"
+import { Check, FileText, Hash, Sparkles, Type } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,9 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { FormatterToolbar } from "./formatter-toolbar"
 import { ImageUploader } from "./image-uploader"
 import { htmlToMarkdown, renderMarkdown } from "./markdown-utils"
+
+import { type NewsPosition } from "@/features/admin/news/types/news"
 
 function escapeAttr(s: string) {
   return s
@@ -28,12 +31,25 @@ function escapeAttr(s: string) {
     .replace(/"/g, "&quot;")
 }
 
+export type NewsFormTag = {
+  id: string
+  name: string
+  color?: string | null
+}
+
 interface NewsFormProps {
   title: string
   setTitle: (val: string) => void
   category: string
   setCategory: (val: string) => void
   categories: string[]
+  tags?: NewsFormTag[]
+  selectedTagIds?: string[]
+  setSelectedTagIds?: (ids: string[]) => void
+  position?: NewsPosition
+  setPosition?: (val: NewsPosition) => void
+  positionOrder?: number
+  setPositionOrder?: (val: number) => void
   image: string
   setImage: (val: string) => void
   urgent: boolean
@@ -42,12 +58,28 @@ interface NewsFormProps {
   setContent: React.Dispatch<React.SetStateAction<string>>
 }
 
+const POSITION_LABELS: { value: NewsPosition; label: string }[] = [
+  { value: "normal", label: "Padrão (Sem destaque fixo)" },
+  { value: "destaque", label: "Destaque Principal" },
+  { value: "topo", label: "Manchete do Topo" },
+  { value: "feed", label: "Feed de Notícias" },
+  { value: "lateral", label: "Barra Lateral" },
+  { value: "rodape", label: "Rodapé" },
+]
+
 export function NewsForm({
   title,
   setTitle,
   category,
   setCategory,
   categories,
+  tags,
+  selectedTagIds,
+  setSelectedTagIds,
+  position = "normal",
+  setPosition,
+  positionOrder = 0,
+  setPositionOrder,
   image,
   setImage,
   urgent,
@@ -305,7 +337,93 @@ export function NewsForm({
           </div>
         </div>
 
+        {tags && tags.length > 0 && setSelectedTagIds && (
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+              <Label>Tags / Palavras-chave</Label>
+              <span className="text-xs text-muted-foreground">
+                {selectedTagIds?.length ?? 0}{" "}
+                {selectedTagIds?.length === 1 ? "selecionada" : "selecionadas"}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-muted/20 p-2.5 min-h-[44px] items-center">
+              {tags.map((t) => {
+                const isSelected = selectedTagIds?.includes(t.id) ?? false
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedTagIds(selectedTagIds?.filter((id) => id !== t.id) ?? [])
+                      } else {
+                        setSelectedTagIds([...(selectedTagIds ?? []), t.id])
+                      }
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all border cursor-pointer",
+                      isSelected
+                        ? "shadow-xs ring-1 ring-primary/40 font-semibold"
+                        : "opacity-65 hover:opacity-100 hover:scale-[1.02]"
+                    )}
+                    style={{
+                      backgroundColor: isSelected
+                        ? `${t.color || "#6366f1"}25`
+                        : `${t.color || "#6366f1"}0d`,
+                      color: t.color || "currentColor",
+                      borderColor: isSelected
+                        ? t.color || "currentColor"
+                        : `${t.color || "#6366f1"}35`,
+                    }}
+                  >
+                    <Hash className="h-3 w-3" />
+                    <span>{t.name}</span>
+                    {isSelected && <Check className="h-3 w-3 ml-0.5" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <ImageUploader value={image} onChange={setImage} label="Imagem de capa" />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="position">Posição na Tela Principal</Label>
+            <Select
+              value={position}
+              onValueChange={(v) => setPosition?.(v as NewsPosition)}
+            >
+              <SelectTrigger id="position">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {POSITION_LABELS.map((pos) => (
+                  <SelectItem key={pos.value} value={pos.value}>
+                    {pos.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="positionOrder">
+              Ordem de Prioridade {!(position === "feed" || position === "lateral") && <span className="text-xs text-muted-foreground font-normal">(apenas feed/lateral)</span>}
+            </Label>
+            <Input
+              id="positionOrder"
+              type="number"
+              min={0}
+              disabled={!(position === "feed" || position === "lateral")}
+              value={positionOrder}
+              onChange={(e) => setPositionOrder?.(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              placeholder="0 (primeiro), 1, 2..."
+              className={!(position === "feed" || position === "lateral") ? "text-muted-foreground opacity-60" : ""}
+            />
+          </div>
+        </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3.5">
           <div>

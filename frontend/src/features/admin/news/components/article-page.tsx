@@ -22,6 +22,7 @@ import type { PortalArticle } from "@/lib/articles-store"
 interface ArticleData {
   title: string
   category: string
+  tags?: { id: string; name: string; color?: string | null }[]
   author: string
   image: string
   urgent: boolean
@@ -63,6 +64,7 @@ export function ArticlePage({
   const {
     title,
     category,
+    tags,
     author,
     image,
     urgent,
@@ -123,10 +125,23 @@ export function ArticlePage({
         </nav>
 
         {/* Badges */}
-        <div className="mt-6 flex items-center gap-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-sm bg-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground">
             {category}
           </span>
+          {tags?.map((t) => (
+            <span
+              key={t.id}
+              className="inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-semibold border"
+              style={{
+                backgroundColor: `${t.color || "#6366f1"}15`,
+                color: t.color || "inherit",
+                borderColor: `${t.color || "#6366f1"}40`,
+              }}
+            >
+              #{t.name}
+            </span>
+          ))}
           {urgent && (
             <span className="inline-flex items-center gap-1 rounded-sm bg-destructive px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white">
               <AlertCircle className="h-3 w-3" /> Urgente

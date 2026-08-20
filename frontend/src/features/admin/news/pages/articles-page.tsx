@@ -236,7 +236,7 @@ export default function ArticlesPage() {
       }
     )
   }
-
+  
   return (
     <div className="p-6 lg:p-10">
       <PageHeader
@@ -340,7 +340,7 @@ export default function ArticlesPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                            <Image src={a.image || "/placeholder.svg"} alt="" fill className="object-cover" sizes="64px" />
+                            <Image src={a?.image || "/placeholder.svg"} alt="" fill className="object-cover" sizes="64px" />
                           </div>
                           <div className="flex min-w-0 flex-col">
                             <span className="line-clamp-2 text-sm font-medium text-foreground">

@@ -21,15 +21,20 @@ import { PageHeader } from "@/components/admin/admin-shell"
 import { cn } from "@/lib/utils"
 
 import { useCategories } from "@/features/admin/categories/hooks/use-categories"
+import { useTags } from "@/features/admin/tags/hooks/use-tags"
+import type { Daum as TagItem } from "@/features/admin/tags/types/tag"
 import { useNewsBySlug } from "@/features/admin/news/hooks/use-news-by-slug"
 import { useCreateNews } from "@/features/admin/news/hooks/use-create-news"
 import { useUpdateNews } from "@/features/admin/news/hooks/use-update-news"
 import { uploadCover } from "@/features/admin/news/services/files-service"
 import {
+  readPosition,
+  readPositionOrder,
   readUrgent,
   type News,
   type NewsCategory,
   type NewsPayload,
+  type NewsPosition,
 } from "@/features/admin/news/types/news"
 
 import { NewsForm } from "@/components/admin/news-editor/news-form"
@@ -46,6 +51,9 @@ export default function NewNewsPage() {
   const categories = useMemo(() => categoriesData?.data ?? [], [categoriesData])
   const categoryNames = useMemo(() => categories.map((c) => c.name), [categories])
 
+  const { data: tagsData } = useTags()
+  const tags = useMemo(() => tagsData?.data ?? [], [tagsData])
+
   const { data: news, isLoading, error } = useNewsBySlug(editSlug)
 
   // Missing news on edit → back to the list
@@ -56,7 +64,7 @@ export default function NewNewsPage() {
     }
   }, [editSlug, error, router])
 
-  if (isLoading || (!editSlug && !categoriesData)) return null
+  if (isLoading || (!editSlug && (!categoriesData || !tagsData))) return null
 
   return (
     <NewsEditor
@@ -64,6 +72,7 @@ export default function NewNewsPage() {
       news={news ?? null}
       categories={categories}
       categoryNames={categoryNames}
+      tags={tags}
     />
   )
 }
@@ -72,10 +81,12 @@ function NewsEditor({
   news,
   categories,
   categoryNames,
+  tags,
 }: {
   news: News | null
   categories: NewsCategory[]
   categoryNames: string[]
+  tags: TagItem[]
 }) {
   const router = useRouter()
 
@@ -86,6 +97,11 @@ function NewsEditor({
 
   const [title, setTitle] = useState(news?.title ?? "")
   const [category, setCategory] = useState(news?.category.name ?? categoryNames[0] ?? "")
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
+    news?.tags ? news.tags.map((t) => t.id) : []
+  )
+  const [position, setPosition] = useState<NewsPosition>(news ? readPosition(news.config) : "normal")
+  const [positionOrder, setPositionOrder] = useState<number>(news ? readPositionOrder(news.config) : 0)
   const [author] = useState(news?.author.name ?? "Redação")
   const [image, setImage] = useState(news?.cover?.path ?? "")
   const [coverId] = useState<string | null>(news?.cover?.id ?? null)
@@ -96,6 +112,11 @@ function NewsEditor({
   const [previewTab, setPreviewTab] = useState("card")
   const [expanded, setExpanded] = useState(false)
 
+  const selectedTags = useMemo(
+    () => tags.filter((t) => selectedTagIds.includes(t.id)),
+    [tags, selectedTagIds]
+  )
+
   /* ─── Save / Publish Handlers ───────────────────────────────────── */
 
   function categoryId(): { id: string } {
@@ -105,7 +126,19 @@ function NewsEditor({
   }
 
   function buildConfig(): Record<string, unknown> {
-    return { ...(config ?? {}), urgent }
+    const next: Record<string, unknown> = { ...(config ?? {}), urgent }
+    if (position !== "normal") {
+      next.position = position
+      if (position === "feed" || position === "lateral") {
+        next.positionOrder = positionOrder
+      } else {
+        delete next.positionOrder
+      }
+    } else {
+      delete next.position
+      delete next.positionOrder
+    }
+    return next
   }
 
   async function resolveCover(): Promise<{ id: string } | null> {
@@ -142,6 +175,7 @@ function NewsEditor({
         body: content,
         status: "draft",
         category: categoryId(),
+        tags: selectedTagIds.map((id) => ({ id })),
         cover,
         config: buildConfig(),
       }
@@ -178,6 +212,7 @@ function NewsEditor({
         body: content,
         status: "published",
         category: categoryId(),
+        tags: selectedTagIds.map((id) => ({ id })),
         cover,
         config: buildConfig(),
       }
@@ -275,6 +310,7 @@ function NewsEditor({
               article={{
                 title,
                 category,
+                tags: selectedTags,
                 author,
                 image,
                 urgent,
@@ -293,6 +329,13 @@ function NewsEditor({
               category={category}
               setCategory={setCategory}
               categories={categoryNames}
+              tags={tags}
+              selectedTagIds={selectedTagIds}
+              setSelectedTagIds={setSelectedTagIds}
+              position={position}
+              setPosition={setPosition}
+              positionOrder={positionOrder}
+              setPositionOrder={setPositionOrder}
               image={image}
               setImage={setImage}
               urgent={urgent}
@@ -337,6 +380,7 @@ function NewsEditor({
                     <ArticlePreview
                       title={title}
                       category={category}
+                      tags={selectedTags}
                       author={author}
                       image={image}
                       urgent={urgent}
@@ -356,6 +400,7 @@ function NewsEditor({
                         article={{
                           title,
                           category,
+                          tags: selectedTags,
                           author,
                           image,
                           urgent,

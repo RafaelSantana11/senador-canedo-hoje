@@ -11,6 +11,30 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
 
 const nextConfig: NextConfig = {
   ...(basePath && { basePath, assetPrefix: basePath }),
+  images: {
+    remotePatterns: [
+      {
+        protocol: "http",
+        hostname: "localhost",
+      },
+      {
+        protocol: "https",
+        hostname: "localhost",
+      },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
+      },
+      {
+        protocol: "https",
+        hostname: "127.0.0.1",
+      },
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+  },
   ...(isStaticExport && {
     output: "export",
     // Pages is a dumb file server: no /_next/image endpoint to optimize on demand.

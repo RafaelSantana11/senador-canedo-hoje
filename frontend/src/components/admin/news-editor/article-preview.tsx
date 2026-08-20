@@ -7,6 +7,7 @@ import { renderMarkdown } from "./markdown-utils"
 interface ArticlePreviewProps {
   title: string
   category: string
+  tags?: { id: string; name: string; color?: string | null }[]
   author: string
   image: string
   urgent: boolean
@@ -14,7 +15,7 @@ interface ArticlePreviewProps {
 }
 
 export function ArticlePreview(props: ArticlePreviewProps) {
-  const { title, category, author, image, urgent, content } = props
+  const { title, category, tags, author, image, urgent, content } = props
 
   return (
     <article className="overflow-hidden rounded-lg border border-border bg-card">
@@ -34,8 +35,21 @@ export function ArticlePreview(props: ArticlePreviewProps) {
         </div>
       )}
       <div className="p-5">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{category}</Badge>
+          {tags?.map((t) => (
+            <span
+              key={t.id}
+              className="inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-medium border"
+              style={{
+                backgroundColor: `${t.color || "#6366f1"}15`,
+                color: t.color || "inherit",
+                borderColor: `${t.color || "#6366f1"}40`,
+              }}
+            >
+              #{t.name}
+            </span>
+          ))}
           {urgent && (
             <span className="text-xs font-semibold tracking-wide text-destructive uppercase">
               Urgente
