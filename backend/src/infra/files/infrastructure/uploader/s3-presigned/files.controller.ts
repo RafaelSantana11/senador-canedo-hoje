@@ -1,10 +1,15 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesS3PresignedService } from './files.service';
 import { FileUploadDto } from './dto/file.dto';
 import { FileResponseDto } from './dto/file-response.dto';
 
+/**
+ * Só o **upload** (aqui, a assinatura da URL) é específico deste driver — o CRUD
+ * do acervo está em `src/infra/files/files.controller.ts`, registrado para
+ * qualquer `FILE_DRIVER`.
+ */
 @ApiTags('Files')
 @Controller({
   path: 'files',
@@ -19,7 +24,7 @@ export class FilesS3PresignedController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Post('upload')
-  async uploadFile(@Body() file: FileUploadDto) {
-    return this.filesService.create(file);
+  async uploadFile(@Body() file: FileUploadDto, @Request() request) {
+    return this.filesService.create(file, request.user?.id);
   }
 }

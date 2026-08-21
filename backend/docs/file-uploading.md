@@ -6,6 +6,8 @@
 
 - [Drivers support](#drivers-support)
 - [Authentication and upload limits](#authentication-and-upload-limits)
+- [File metadata](#file-metadata)
+- [The media library CRUD (driver-agnostic)](#the-media-library-crud-driver-agnostic)
 - [Uploading and attach file flow for `local` driver](#uploading-and-attach-file-flow-for-local-driver)
   - [An example of uploading an avatar to a user profile (local)](#an-example-of-uploading-an-avatar-to-a-user-profile-local)
   - [Video example](#video-example)
@@ -36,6 +38,40 @@ In this project, the `s3` and `s3-presigned` drivers target an S3-compatible sto
 - `POST /api/v1/files/upload` requires a valid JWT access token for every driver (`@UseGuards(AuthGuard('jwt'))`). Log in first (e.g. `POST /api/v1/auth/email/login`) and send the token as `Authorization: Bearer <token>`. If you don't have a user yet, run `npm run seed:run:relational` to create the seed users (see [src/infra/database/seeds/relational](../src/infra/database/seeds/relational)).
 - Only `jpg`, `jpeg`, `png` and `gif` files are accepted — anything else is rejected by the upload filter.
 - The maximum file size is 5 MB (`maxFileSize` in [src/infra/files/config/file.config.ts](../src/infra/files/config/file.config.ts)).
+- The upload accepts two **optional** extra fields besides the binary: `width` and `height` (integers). For the `local`/`s3` drivers they are `multipart/form-data` text fields; for `s3-presigned` they go in the JSON body. See [File metadata](#file-metadata) for why they come from the client.
+
+---
+
+## File metadata
+
+Since Part 5 the `file` table is a real media library, not just `{ id, path }`. Every upload records:
+
+| Field | Filled by | Notes |
+| --- | --- | --- |
+| `path` | driver | Object key (`s3`/`s3-presigned`) or serving route (`local`). Serialized as a ready-to-use public URL — see [Serialization](serialization.md). |
+| `originalName` | server | Name of the file as sent. The stored key is random, so without this the library is unreadable. |
+| `mimeType` | server | Detected on upload. In `s3-presigned` the API never sees the bytes, so it is derived from the extension. |
+| `sizeBytes` | server | **A number**, not a formatted string. `1468006`, never `"1.4 MB"` — formatting is presentation. |
+| `width` / `height` | **client** | Optional. Extracting them would require reading the binary, which the API only has in the `local` driver — `multer-s3` streams straight to the bucket and the presigned flow bypasses the API entirely. Accepting them declared is the only option that behaves the same across all three drivers, with no new dependency. |
+| `uploadedBy` | server (token) | The `Author` of the authenticated user. Never accepted in the payload. |
+| `title` / `alt` | client, later | The only editable fields — set via `PATCH /api/v1/files/:id`, not at upload time. |
+
+`type` (`image` / `video` / `document`) is **derived from `mimeType` at serialization time and is not a column**. Files uploaded before Part 5 have no `mimeType` and therefore report `type: null`.
+
+---
+
+## The media library CRUD (driver-agnostic)
+
+Only the **upload** talks to the storage, so only the upload is driver-specific. Listing, reading, editing metadata and deleting operate on the `file` table and live in a single controller, [src/infra/files/files.controller.ts](../src/infra/files/files.controller.ts), registered by `FilesModule` regardless of `FILE_DRIVER`:
+
+| Method | Route | Auth | Notes |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/files` | JWT | Paginated, `createdAt DESC`. Filters: `type`, `q`. |
+| `GET` | `/api/v1/files/:id` | JWT | `:id` must be a uuid — anything else is `400`. |
+| `PATCH` | `/api/v1/files/:id` | JWT | Accepts only `title` and `alt`. Any derived field in the payload is refused with `422 { errors: { field: "readOnlyField" } }`. |
+| `DELETE` | `/api/v1/files/:id` | JWT | Deletes the record **and** the stored object. |
+
+> ⚠️ **Route change in the `local` driver.** Serving the binary from disk moved from `GET /api/v1/files/:path` to `GET /api/v1/files/download/:path`, because the old shape collided with the new `GET /api/v1/files/:id` (both are single-segment wildcards, so whichever controller registered first swallowed the other). The Part 5 migration rewrites the `path` values already stored, so existing uploads keep working. The `s3` drivers are unaffected — they store a bare object key.
 
 ---
 
@@ -180,7 +216,29 @@ sequenceDiagram
 
 ## How to delete files?
 
-We prefer not to delete files, as this may have negative experience during restoring data. Also for this reason we also use [Soft-Delete](https://orkhan.gitbook.io/typeorm/docs/delete-query-builder#soft-delete) approach in database. However, if you need to delete files you can create your own handler, cronjob, etc.
+`DELETE /api/v1/files/:id` removes the database row **and** the object in the storage — otherwise the bucket accumulates objects nobody can reference any more. Removing the object is the one driver-specific part of the operation, isolated behind the `StorageRemover` interface ([src/infra/files/infrastructure/uploader/storage-remover.ts](../src/infra/files/infrastructure/uploader/storage-remover.ts)); an object that is already gone is logged and ignored, never an error — the database row is the source of truth.
+
+⚠️ **A file in use cannot be deleted.** Three things reference `file` today, and all three are checked before anything is removed:
+
+| Reference | Column |
+| --- | --- |
+| `News.cover` | `news.cover_id` |
+| `User.photo` | `user.photoId` |
+| `BannerItem.file` | `banner_item.file_id` |
+
+Deleting a file that is in use responds `422`:
+
+```json
+{
+  "status": 422,
+  "errors": { "id": "fileInUse" },
+  "usedBy": { "news": 2, "users": 0, "banners": 1 }
+}
+```
+
+`usedBy` sits outside `errors` on purpose: the error contract stays `{ errors: { field: code } }`, and the extra object tells the panel *where* the file is used so it can say so to the operator. Soft-deleted news and users still count — their foreign key still points at the file, so ignoring them would turn a business rule into a database constraint violation (`500` instead of a message the panel can show).
+
+Rows in other tables (`news`, `user`) are still soft-deleted; only `file` is removed for real, and only when nothing references it.
 
 ---
 

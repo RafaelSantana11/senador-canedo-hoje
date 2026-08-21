@@ -93,3 +93,80 @@ export const createNews = async (
 
   return body as CreatedNews;
 };
+
+/**
+ * PNG 1x1 válido, embutido em base64.
+ *
+ * Precisa ser um arquivo de verdade (e com extensão permitida): o `fileFilter`
+ * do multer recusa qualquer coisa fora de jpg/jpeg/png/gif, e no driver `local`
+ * o binário é gravado em disco e servido de volta.
+ */
+export const PNG_1X1 = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+export type UploadedFile = {
+  id: string;
+  path: string;
+  type: 'image' | 'video' | 'document' | null;
+  originalName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  width: number | null;
+  height: number | null;
+  title: string | null;
+  alt: string | null;
+  uploadedBy?: { id: string; slug: string; name: string } | null;
+};
+
+export const uploadFile = async (
+  token: string,
+  {
+    fileName = unique('imagem') + '.png',
+    width,
+    height,
+  }: { fileName?: string; width?: number; height?: number } = {},
+): Promise<UploadedFile> => {
+  const req = request(APP_URL)
+    .post('/api/v1/files/upload')
+    .auth(token, { type: 'bearer' })
+    .attach('file', PNG_1X1, fileName);
+
+  if (width !== undefined) req.field('width', String(width));
+  if (height !== undefined) req.field('height', String(height));
+
+  const { body } = await req.expect(201);
+
+  return body.file as UploadedFile;
+};
+
+export type CreatedBannerItem = {
+  id: string;
+  file: UploadedFile;
+  durationMs: number;
+  linkUrl: string | null;
+  order: number;
+};
+
+export type CreatedBanner = {
+  id: string;
+  title: string;
+  advertiser: string | null;
+  position: 'top' | 'middle' | 'aside' | 'bottom';
+  active: boolean;
+  items: CreatedBannerItem[];
+};
+
+export const createBanner = async (
+  token: string,
+  payload: Record<string, unknown> = {},
+): Promise<CreatedBanner> => {
+  const { body } = await request(APP_URL)
+    .post('/api/v1/banners')
+    .auth(token, { type: 'bearer' })
+    .send({ title: unique('Campanha'), position: 'top', ...payload })
+    .expect(201);
+
+  return body as CreatedBanner;
+};

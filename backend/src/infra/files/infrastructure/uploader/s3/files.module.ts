@@ -11,6 +11,9 @@ import { S3Client } from '@aws-sdk/client-s3';
 import multerS3 from 'multer-s3';
 
 import { FilesS3Service } from './files.service';
+import { S3StorageRemover } from '../s3-storage-remover';
+import { StorageRemover } from '../storage-remover';
+import { UploadRegistrarModule } from '../upload-registrar.module';
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
 import { S3_UPLOAD_ACL } from '../s3-acl.constant';
@@ -20,6 +23,7 @@ const infrastructurePersistenceModule = RelationalFilePersistenceModule;
 @Module({
   imports: [
     infrastructurePersistenceModule,
+    UploadRegistrarModule,
     MulterModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -84,7 +88,10 @@ const infrastructurePersistenceModule = RelationalFilePersistenceModule;
     }),
   ],
   controllers: [FilesS3Controller],
-  providers: [FilesS3Service],
-  exports: [FilesS3Service],
+  providers: [
+    FilesS3Service,
+    { provide: StorageRemover, useClass: S3StorageRemover },
+  ],
+  exports: [FilesS3Service, StorageRemover],
 })
 export class FilesS3Module {}

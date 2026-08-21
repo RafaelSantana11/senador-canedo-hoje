@@ -29,9 +29,16 @@ export class SessionRelationalRepository implements SessionRepository {
 
   async create(data: Session): Promise<Session> {
     const persistenceModel = SessionMapper.toPersistence(data);
-    return this.sessionRepository.save(
+    const entity = await this.sessionRepository.save(
       this.sessionRepository.create(persistenceModel),
     );
+
+    // Passa pelo mapper em vez de devolver a entidade direto. Antes compilava
+    // por acaso: `SessionEntity` e `Session` eram estruturalmente idênticos
+    // porque `FileEntity` (dentro de `user.photo`) só tinha `id` e `path`. Com
+    // os metadados da Parte 5 as duas formas divergiram e o acaso acabou — o
+    // mapper é o que deveria estar aqui desde sempre.
+    return SessionMapper.toDomain(entity);
   }
 
   async update(

@@ -11,6 +11,9 @@ import { S3Client } from '@aws-sdk/client-s3';
 import multerS3 from 'multer-s3';
 
 import { FilesS3PresignedService } from './files.service';
+import { S3StorageRemover } from '../s3-storage-remover';
+import { StorageRemover } from '../storage-remover';
+import { UploadRegistrarModule } from '../upload-registrar.module';
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
 
@@ -19,6 +22,7 @@ const infrastructurePersistenceModule = RelationalFilePersistenceModule;
 @Module({
   imports: [
     infrastructurePersistenceModule,
+    UploadRegistrarModule,
     MulterModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -74,7 +78,13 @@ const infrastructurePersistenceModule = RelationalFilePersistenceModule;
     }),
   ],
   controllers: [FilesS3PresignedController],
-  providers: [ConfigModule, ConfigService, FilesS3PresignedService],
-  exports: [FilesS3PresignedService],
+  providers: [
+    ConfigModule,
+    ConfigService,
+    FilesS3PresignedService,
+    // Mesma implementação do driver `s3`: o objeto vive no mesmo bucket.
+    { provide: StorageRemover, useClass: S3StorageRemover },
+  ],
+  exports: [FilesS3PresignedService, StorageRemover],
 })
 export class FilesS3PresignedModule {}

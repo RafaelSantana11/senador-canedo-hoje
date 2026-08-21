@@ -4,8 +4,6 @@ import {
   PayloadTooLargeException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { FileRepository } from '../../persistence/file.repository';
-
 import { FileUploadDto } from './dto/file.dto';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -14,13 +12,27 @@ import { ConfigService } from '@nestjs/config';
 import { FileType } from '../../../domain/file';
 import { AllConfigType } from '../../../../config/config.type';
 import { S3_UPLOAD_ACL } from '../s3-acl.constant';
+import { UploadRegistrarService } from '../upload-registrar.service';
+
+/**
+ * Neste driver a API nunca vê os bytes, então não há mimetype detectado — ele é
+ * derivado da extensão, que o `fileFilter` deste fluxo já restringe às quatro
+ * abaixo. Extensão desconhecida vira `null`, e o arquivo fica com `type: null`
+ * em vez de um mimetype inventado.
+ */
+const MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+};
 
 @Injectable()
 export class FilesS3PresignedService {
   private s3: S3Client;
 
   constructor(
-    private readonly fileRepository: FileRepository,
+    private readonly uploadRegistrar: UploadRegistrarService,
     private readonly configService: ConfigService<AllConfigType>,
   ) {
     this.s3 = new S3Client({
@@ -49,6 +61,7 @@ export class FilesS3PresignedService {
 
   async create(
     file: FileUploadDto,
+    userId?: number | string | null,
   ): Promise<{ file: FileType; uploadSignedUrl: string }> {
     if (!file) {
       throw new UnprocessableEntityException({
@@ -102,8 +115,16 @@ export class FilesS3PresignedService {
       ACL: S3_UPLOAD_ACL,
     });
     const signedUrl = await getSignedUrl(this.s3, command, { expiresIn: 3600 });
-    const data = await this.fileRepository.create({
+    const data = await this.uploadRegistrar.register({
       path: key,
+      originalName: file.fileName,
+      mimeType: MIME_BY_EXTENSION[key.split('.').pop() ?? ''] ?? null,
+      // Declarado pelo cliente — é o único número disponível aqui, e é o mesmo
+      // que já era usado para barrar arquivo acima do limite.
+      sizeBytes: file.fileSize,
+      width: file.width,
+      height: file.height,
+      userId,
     });
 
     return {

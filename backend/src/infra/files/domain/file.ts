@@ -1,11 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Allow } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Expose, Transform } from 'class-transformer';
 import fileConfig from '../config/file.config';
 import { FileConfig, FileDriver } from '../config/file-config.type';
 
 import { AppConfig } from '../../config/app-config.type';
 import appConfig from '../../config/app.config';
+import { MediaTypeEnum, resolveMediaType } from '../media-type.enum';
+import { FileUploader } from './file-uploader';
 
 export class FileType {
   @ApiProperty({
@@ -63,4 +65,99 @@ export class FileType {
     },
   )
   path: string;
+
+  /**
+   * `image` / `video` / `document` **derivado do `mimeType`** na serialização —
+   * não existe coluna `type` na tabela `file`. É o campo que o filtro do acervo
+   * (`GET /files?type=image`) usa.
+   *
+   * `null` para os arquivos anteriores à Parte 5, que subiram sem `mimeType`.
+   *
+   * O `@Expose()` é o que faz a propriedade aparecer no payload mesmo sem nunca
+   * ser atribuída pelo mapper: sem ele, `instanceToPlain` só enxergaria as
+   * chaves realmente presentes na instância e `type` sumiria da resposta.
+   */
+  @ApiPropertyOptional({ enum: MediaTypeEnum, nullable: true })
+  @Expose()
+  @Transform(({ obj }) => resolveMediaType(obj.mimeType), { toPlainOnly: true })
+  type?: MediaTypeEnum | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'fachada-do-congresso.png',
+    description:
+      'Nome do arquivo como veio da máquina de quem subiu. A key gravada no ' +
+      'storage é aleatória, então sem isto o acervo fica ilegível.',
+  })
+  originalName?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'image/png',
+    description: 'Detectado no upload. É de onde `type` é derivado.',
+  })
+  mimeType?: string | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: 1468006,
+    description:
+      'Tamanho em **bytes**, número — não string formatada. `"1.4 MB"` é ' +
+      'apresentação e é o cliente quem formata.',
+  })
+  sizeBytes?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: 1920,
+    description:
+      'Largura em pixels. Informada pelo cliente no upload (o servidor não lê ' +
+      'o binário) — `null` quando não enviada ou quando não é imagem.',
+  })
+  width?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: 1080,
+    description: 'Altura em pixels. Mesma origem de `width`.',
+  })
+  height?: number | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'Fachada do Congresso',
+    description: 'Rótulo editável do acervo. Editável por `PATCH /files/:id`.',
+  })
+  title?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'Fachada do Congresso Nacional ao entardecer',
+    description:
+      'Texto alternativo (acessibilidade/SEO). Editável por `PATCH /files/:id` ' +
+      'e é o `alt` que a entrega pública de banners devolve.',
+  })
+  alt?: string | null;
+
+  /**
+   * ⚠️ **Não vaza em rota pública por construção**: a relação `uploadedBy` NÃO é
+   * `eager` na entidade, então só é carregada pelas queries do acervo (que são
+   * autenticadas). Em `GET /news` e em `GET /banners/serve` o arquivo chega sem
+   * ela, e a propriedade nem aparece no JSON.
+   */
+  @ApiPropertyOptional({ type: () => FileUploader, nullable: true })
+  uploadedBy?: FileUploader | null;
+
+  @ApiPropertyOptional({ type: Date })
+  createdAt?: Date;
+
+  @ApiPropertyOptional({ type: Date })
+  updatedAt?: Date;
 }
