@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -196,11 +197,10 @@ export function AdFormDialog({
             name="active"
             render={({ field }) => (
               <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-border accent-[var(--secondary)]"
+                  onCheckedChange={(checked) => field.onChange(checked)}
+                  className="data-checked:border-secondary data-checked:bg-secondary"
                 />
                 Campanha ativa
               </label>

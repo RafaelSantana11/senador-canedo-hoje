@@ -1,4 +1,14 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
+import { useServeBanners } from "@/features/admin/ads/hooks/use-serve-banners"
+import type { BannerPosition, PublicBannerItem } from "@/features/admin/ads/types/banner"
+
+const POSITION_BY_SIZE: Record<"leaderboard" | "box", BannerPosition> = {
+  leaderboard: "top",
+  box: "aside",
+}
 
 export function AdBanner({
   size = "leaderboard",
@@ -7,20 +17,64 @@ export function AdBanner({
   size?: "leaderboard" | "box"
   className?: string
 }) {
+  const position = POSITION_BY_SIZE[size]
+  const { data } = useServeBanners([position])
+
+  // Posição vazia não é erro: volta ao espaço reservado.
+  const items = data?.[position] ?? []
+
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-400 bg-muted/50 text-primary",
+        "overflow-hidden rounded-xl",
         size === "leaderboard" ? "h-24 w-full sm:h-28" : "aspect-square w-full",
         className
       )}
       role="complementary"
       aria-label="Espaço publicitário"
     >
-      <span className="text-[10px] font-semibold tracking-widest uppercase">
-        Publicidade
-      </span>
-      <span className="mt-1 text-xs">Anuncie aqui</span>
+      {items.length === 0 ? (
+        <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-400 bg-muted/50 text-primary">
+          <span className="text-[10px] font-semibold uppercase tracking-widest">
+            Publicidade
+          </span>
+          <span className="mt-1 text-xs">Anuncie aqui</span>
+        </div>
+      ) : (
+        <BannerCarousel items={items} />
+      )}
     </div>
+  )
+}
+
+function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    if (items.length < 2) return
+    const timer = setTimeout(
+      () => setIndex((v) => (v + 1) % items.length),
+      Math.min(Math.max(items[index]?.durationMs ?? 5000, 500), 300000),
+    )
+    return () => clearTimeout(timer)
+  }, [index, items])
+
+  const item = items[index] ?? items[0]
+
+  const img = (
+    // eslint-disable-next-line @next/next/no-img-element -- URL pública do storage/CDN, fora do controle do build
+    <img
+      src={item.image.path}
+      alt={item.alt ?? item.image.alt ?? ""}
+      className="h-full w-full object-cover"
+    />
+  )
+
+  return item.linkUrl ? (
+    <a href={item.linkUrl} target="_blank" rel="noreferrer sponsored" className="block h-full w-full">
+      {img}
+    </a>
+  ) : (
+    img
   )
 }

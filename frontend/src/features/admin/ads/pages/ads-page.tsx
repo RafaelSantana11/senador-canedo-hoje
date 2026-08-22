@@ -5,10 +5,16 @@ import Image from "next/image"
 import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/admin/admin-shell"
-import { useAdminStore, type Ad } from "@/components/admin/admin-store"
-import { AdFormDialog, type AdFormValues } from "@/components/admin/ad-form-dialog"
+import { useBanners } from "../hooks/use-banners"
+import { useCreateBanner } from "../hooks/use-create-banner"
+import { useUpdateBanner } from "../hooks/use-update-banner"
+import { useDeleteBanner } from "../hooks/use-delete-banner"
+import { BannerDialog } from "../components/banner-dialog"
+import type { Banner, BannerPayload } from "../types/banner"
+import { POSITION_LABELS } from "../types/banner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import {
   AlertDialog,
@@ -22,38 +28,78 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function AdsPage() {
-  const { ready, ads, addAd, updateAd, deleteAd, toggleAd } = useAdminStore()
-  const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<Ad | null>(null)
-  const [toDelete, setToDelete] = useState<Ad | null>(null)
+  const { data, isLoading } = useBanners()
+  const createBanner = useCreateBanner()
+  const updateBanner = useUpdateBanner()
+  const deleteBanner = useDeleteBanner()
 
-  if (!ready) return null
+  const banners = data?.data ?? []
+
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<Banner | null>(null)
+  const [toDelete, setToDelete] = useState<Banner | null>(null)
+
+  if (isLoading) return null
 
   function openCreate() {
     setEditing(null)
     setFormOpen(true)
   }
 
-  function openEdit(ad: Ad) {
-    setEditing(ad)
+  function openEdit(banner: Banner) {
+    setEditing(banner)
     setFormOpen(true)
   }
 
-  function handleSubmit(values: AdFormValues) {
+  function handleSubmit(payload: BannerPayload) {
     if (editing) {
-      updateAd(editing.id, values)
-      toast.success("Campanha atualizada.")
+      updateBanner.mutate(
+        { id: editing.id, payload },
+        {
+          onSuccess: () => {
+            toast.success("Campanha atualizada.")
+            setFormOpen(false)
+          },
+          onError: () => {
+            toast.error("Não foi possível atualizar a campanha.")
+          },
+        },
+      )
     } else {
-      addAd(values)
-      toast.success("Campanha criada.")
+      createBanner.mutate(payload, {
+        onSuccess: () => {
+          toast.success("Campanha criada.")
+          setFormOpen(false)
+        },
+        onError: () => {
+          toast.error("Não foi possível criar a campanha.")
+        },
+      })
     }
+  }
+
+  function toggleActive(banner: Banner) {
+    updateBanner.mutate(
+      { id: banner.id, payload: { active: !banner.active } },
+      {
+        onError: () => {
+          toast.error("Não foi possível alterar o status da campanha.")
+        },
+      },
+    )
   }
 
   function confirmDelete() {
     if (toDelete) {
-      deleteAd(toDelete.id)
-      toast.success("Campanha excluída.")
-      setToDelete(null)
+      deleteBanner.mutate(toDelete.id, {
+        onSuccess: () => {
+          toast.success("Campanha excluída.")
+          setToDelete(null)
+        },
+        onError: () => {
+          toast.error("Não foi possível excluir a campanha.")
+        },
+      })
     }
   }
 
@@ -70,7 +116,7 @@ export default function AdsPage() {
         }
       />
 
-      {ads.length === 0 ? (
+      {banners.length === 0 ? (
         <div className="mt-10 rounded-xl border border-dashed border-border py-16 text-center">
           <p className="text-sm text-muted-foreground">
             Nenhuma campanha cadastrada. Crie a primeira publicidade.
@@ -78,73 +124,90 @@ export default function AdsPage() {
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {ads.map((ad) => (
-            <Card key={ad.id} className="overflow-hidden border-border p-0 shadow-sm">
-              <div className="relative aspect-[16/9] bg-muted">
-                <Image src={ad.image || "/placeholder.svg"} alt={ad.title} fill className="object-cover" sizes="400px" />
-                <div className="absolute left-3 top-3">
-                  <Badge
-                    className={
-                      ad.active
-                        ? "bg-secondary text-secondary-foreground"
-                        : "bg-muted-foreground/80 text-background"
-                    }
-                  >
-                    {ad.active ? "Ativa" : "Pausada"}
-                  </Badge>
+          {banners.map((banner) => {
+            const item = banner.items[0]
+            return (
+              <Card key={banner.id} className="overflow-hidden border-border p-0 shadow-sm">
+                <div className="relative aspect-[16/9] bg-muted">
+                  {item?.file.path ? (
+                    <Image
+                      src={item.file.path}
+                      alt={item.file.alt ?? banner.title}
+                      fill
+                      className="object-cover"
+                      sizes="400px"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                      Sem criativo
+                    </div>
+                  )}
+                  <div className="absolute left-3 top-3">
+                    <Badge
+                      className={
+                        banner.active
+                          ? "bg-secondary text-secondary-foreground"
+                          : "bg-muted-foreground/80 text-background"
+                      }
+                    >
+                      {banner.active ? "Ativa" : "Pausada"}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-              <CardContent className="p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                  {ad.placement}
-                </p>
-                <h3 className="mt-1 font-serif text-lg font-bold leading-tight text-foreground">
-                  {ad.title}
-                </h3>
-                <p className="mt-0.5 text-sm text-muted-foreground">{ad.advertiser}</p>
-                {ad.link && (
-                  <a
-                    href={ad.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-secondary"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    <span className="max-w-[200px] truncate">{ad.link}</span>
-                  </a>
-                )}
-              </CardContent>
-              <CardFooter className="flex items-center justify-between border-t border-border p-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={ad.active}
-                    onChange={() => toggleAd(ad.id)}
-                    className="h-4 w-4 rounded border-border accent-[var(--secondary)]"
-                  />
-                  {ad.active ? "Ativa" : "Ativar"}
-                </label>
-                <div className="flex items-center gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(ad)} aria-label="Editar">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setToDelete(ad)}
-                    aria-label="Excluir"
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-secondary">
+                    {POSITION_LABELS[banner.position]}
+                  </p>
+                  <h3 className="mt-1 font-serif text-lg font-bold leading-tight text-foreground">
+                    {banner.title}
+                  </h3>
+                  {banner.advertiser && (
+                    <p className="mt-0.5 text-sm text-muted-foreground">{banner.advertiser}</p>
+                  )}
+                  {item?.linkUrl && (
+                    <a
+                      href={item.linkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-secondary"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span className="max-w-[200px] truncate">{item.linkUrl}</span>
+                    </a>
+                  )}
+                </CardContent>
+                <CardFooter className="flex items-center justify-between border-t border-border p-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={banner.active}
+                      onCheckedChange={() => toggleActive(banner)}
+                      className="data-checked:border-secondary data-checked:bg-secondary"
+                    />
+                    {banner.active ? "Ativa" : "Ativar"}
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(banner)} aria-label="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setToDelete(banner)}
+                      aria-label="Excluir"
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       )}
 
-      <AdFormDialog
+      <BannerDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         initial={editing}
@@ -156,7 +219,8 @@ export default function AdsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir publicidade?</AlertDialogTitle>
             <AlertDialogDescription>
-              A campanha &quot;{toDelete?.title}&quot; será removida permanentemente.
+              A campanha &quot;{toDelete?.title}&quot; será removida permanentemente. As imagens do
+              acervo não são apagadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
