@@ -5,9 +5,9 @@ import { getPublicCategories } from "../services/categories-service"
 
 export const PORTAL_CATEGORIES_KEY = ["portal", "categories"] as const
 
-// Menu do portal: só ativas, ordenadas por nome no servidor. Sem token o
-// `?active=` seria ignorado de qualquer forma; explícito cobre quem navega
-// logado (o interceptor anexa token).
+// Menu do portal: só ativas, ordenadas por nome no servidor. A rota é anônima
+// (`publicApi` não anexa token), então o `?active=` explícito só documenta a
+// intenção — o backend já filtra sem sessão.
 export function usePortalCategories() {
   return useQuery({
     queryKey: PORTAL_CATEGORIES_KEY,

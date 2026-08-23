@@ -40,7 +40,7 @@ import {
 import { NewsForm } from "@/components/admin/news-editor/news-form"
 import { ArticlePreview } from "@/components/admin/news-editor/article-preview"
 import { generateExcerpt } from "@/components/admin/news-editor/markdown-utils"
-import { ArticlePage } from "@/features/admin/news/components/article-page"
+import { ArticlePage } from "@/features/portal/news/components/article-page"
 
 export default function NewNewsPage() {
   const router = useRouter()

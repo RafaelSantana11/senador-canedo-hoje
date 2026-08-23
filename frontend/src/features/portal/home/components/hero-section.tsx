@@ -15,7 +15,7 @@ export function HeroSection() {
 
   // Enquanto a listagem pública carrega (ou vazia), não há o que mostrar.
   if (!sections.hero) return null
-
+  console.log(sections)
   const hero = sections.hero
 
   return (

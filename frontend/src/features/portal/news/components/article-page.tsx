@@ -17,7 +17,7 @@ import {
 } from "@/components/admin/news-editor/markdown-utils"
 import { AdBanner } from "@/features/portal/home/components/ad-banner"
 import { assetPath } from "@/lib/utils"
-import type { PortalArticle } from "@/lib/articles-store"
+import type { RelatedArticleView } from "../types/news"
 
 interface ArticleData {
   title: string
@@ -33,7 +33,7 @@ interface ArticleData {
 
 interface ArticlePageProps {
   article: ArticleData
-  related?: PortalArticle[]
+  related?: RelatedArticleView[]
   /** Preview mode renders the same layout without site chrome / real links. */
   preview?: boolean
 }
