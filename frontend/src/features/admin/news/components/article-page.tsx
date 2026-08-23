@@ -15,7 +15,7 @@ import {
   splitMarkdownBlocks,
   inContentAdPositions,
 } from "@/components/admin/news-editor/markdown-utils"
-import { AdBanner } from "@/features/admin/news/components/ad-banner"
+import { AdBanner } from "@/features/portal/home/components/ad-banner"
 import { assetPath } from "@/lib/utils"
 import type { PortalArticle } from "@/lib/articles-store"
 
