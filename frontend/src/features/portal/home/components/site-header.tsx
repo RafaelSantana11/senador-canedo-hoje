@@ -4,12 +4,18 @@ import { useState } from "react"
 import Link from "next/link"
 import { Menu, Search, X } from "lucide-react"
 import { usePortalCategories } from "../hooks/use-categories"
+import { useSelectedCategory } from "../contexts/category-context"
 import { cn } from "@/lib/utils"
+
+const ALL_NEWS_ITEM = { id: "__all__", name: "Notícias", slug: null }
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { data } = usePortalCategories()
   const categories = data?.data ?? []
+  const { selectedSlug, setSelectedSlug } = useSelectedCategory()
+
+  const navItems = [{ ...ALL_NEWS_ITEM, slug: null }, ...categories]
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -87,18 +93,22 @@ export function SiteHeader() {
         aria-label="Categorias"
       >
         <div className="mx-auto flex max-w-7xl items-center gap-1 px-4">
-          {categories.map((cat, i) => (
-            <a
-              key={cat.id}
-              href="#"
-              className={cn(
-                "relative border-b-2 border-transparent px-3 py-3 text-sm font-medium text-foreground transition-colors hover:text-secondary",
-                i === 0 && "border-secondary text-secondary"
-              )}
-            >
-              {cat.name}
-            </a>
-          ))}
+          {navItems.map((cat) => {
+            const isActive = cat.slug === selectedSlug
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedSlug(cat.slug)}
+                className={cn(
+                  "relative border-b-2 border-transparent px-3 py-3 text-sm font-medium text-foreground transition-colors hover:text-secondary",
+                  isActive && "border-secondary text-secondary"
+                )}
+              >
+                {cat.name}
+              </button>
+            )
+          })}
         </div>
       </nav>
 
@@ -109,15 +119,25 @@ export function SiteHeader() {
           aria-label="Categorias"
         >
           <div className="grid grid-cols-2 gap-1 py-2">
-            {categories.map((cat) => (
-              <a
-                key={cat.id}
-                href="#"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-secondary"
-              >
-                {cat.name}
-              </a>
-            ))}
+            {navItems.map((cat) => {
+              const isActive = cat.slug === selectedSlug
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSlug(cat.slug)
+                    setMenuOpen(false)
+                  }}
+                  className={cn(
+                    "rounded-lg px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-secondary",
+                    isActive && "bg-muted text-secondary"
+                  )}
+                >
+                  {cat.name}
+                </button>
+              )
+            })}
           </div>
         </nav>
       )}

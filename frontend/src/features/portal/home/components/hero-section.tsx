@@ -3,19 +3,24 @@
 import { Clock } from "lucide-react"
 import Link from "next/link"
 import { CategoryBadge } from "./category-badge"
-import { usePortalNews } from "../hooks/use-news"
+import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
 import { selectHomeSections } from "../utils/showcase"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent } from "../types/news"
 import { assetPath } from "@/lib/utils"
+import { useSelectedCategory } from "../contexts/category-context"
 
 export function HeroSection() {
-  const { data } = usePortalNews()
+  const { selectedSlug } = useSelectedCategory()
+  const { data } = usePortalNews({
+    ...SHOWCASE_PARAMS,
+    ...(selectedSlug ? { category: selectedSlug } : {}),
+  })
   const sections = selectHomeSections(data?.data ?? [])
 
   // Enquanto a listagem pública carrega (ou vazia), não há o que mostrar.
   if (!sections.hero) return null
-  console.log(sections)
+  
   const hero = sections.hero
 
   return (

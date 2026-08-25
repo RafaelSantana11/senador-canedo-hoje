@@ -3,13 +3,18 @@
 import { Clock, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { AdBanner } from "./ad-banner"
-import { usePortalNews } from "../hooks/use-news"
+import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
 import { selectHomeSections } from "../utils/showcase"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent } from "../types/news"
+import { useSelectedCategory } from "../contexts/category-context"
 
 export function NewsSidebar() {
-  const { data } = usePortalNews()
+  const { selectedSlug } = useSelectedCategory()
+  const { data } = usePortalNews({
+    ...SHOWCASE_PARAMS,
+    ...(selectedSlug ? { category: selectedSlug } : {}),
+  })
   const { mostRead, latest } = selectHomeSections(data?.data ?? [])
 
   if (mostRead.length === 0 && latest.length === 0) return null

@@ -3,14 +3,19 @@
 import { Clock } from "lucide-react"
 import Link from "next/link"
 import { CategoryBadge } from "./category-badge"
-import { usePortalNews } from "../hooks/use-news"
+import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
 import { selectHomeSections } from "../utils/showcase"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent } from "../types/news"
 import { assetPath } from "@/lib/utils"
+import { useSelectedCategory } from "../contexts/category-context"
 
 export function FeaturedGrid() {
-  const { data } = usePortalNews()
+  const { selectedSlug } = useSelectedCategory()
+  const { data } = usePortalNews({
+    ...SHOWCASE_PARAMS,
+    ...(selectedSlug ? { category: selectedSlug } : {}),
+  })
   const { featured } = selectHomeSections(data?.data ?? [])
 
   if (featured.length === 0) return null

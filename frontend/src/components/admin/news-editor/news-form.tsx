@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { Check, FileText, Hash, Sparkles, Type } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Check, Clock, FileText, Hash, ImagePlus, Sparkles, Type } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { FormatterToolbar } from "./formatter-toolbar"
+import { FormatterToolbar, EMPTY_FORMATS, type ActiveFormats } from "./formatter-toolbar"
 import { ImageUploader } from "./image-uploader"
 import { htmlToMarkdown, renderMarkdown } from "./markdown-utils"
 
@@ -90,6 +90,8 @@ export function NewsForm({
   const editorRef = useRef<HTMLDivElement>(null)
   const lastContentRef = useRef<string | null>(null)
   const savedRangeRef = useRef<Range | null>(null)
+  const [activeFormats, setActiveFormats] = useState<ActiveFormats>(EMPTY_FORMATS)
+  const [isDragging, setIsDragging] = useState(false)
 
   function saveSelection() {
     const sel = window.getSelection()
@@ -137,6 +139,7 @@ export function NewsForm({
       restoreSelection()
       document.execCommand(command, false, value)
       syncFromEditor()
+      queryActiveFormats()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -147,6 +150,29 @@ export function NewsForm({
     document.execCommand("insertHTML", false, html)
     syncFromEditor()
   }
+
+  /* ─── Query active formatting state ──────────────────────────────── */
+
+  function queryActiveFormats() {
+    try {
+      setActiveFormats({
+        bold: document.queryCommandState("bold"),
+        italic: document.queryCommandState("italic"),
+        underline: document.queryCommandState("underline"),
+        strikeThrough: document.queryCommandState("strikeThrough"),
+        justifyLeft: document.queryCommandState("justifyLeft"),
+        justifyCenter: document.queryCommandState("justifyCenter"),
+        justifyRight: document.queryCommandState("justifyRight"),
+        justifyFull: document.queryCommandState("justifyFull"),
+        insertUnorderedList: document.queryCommandState("insertUnorderedList"),
+        insertOrderedList: document.queryCommandState("insertOrderedList"),
+      })
+    } catch {
+      // queryCommandState can throw in some edge cases
+    }
+  }
+
+  /* ─── Command handlers ──────────────────────────────────────────── */
 
   function insertLink() {
     const url = window.prompt("URL do link:", "https://")
@@ -182,6 +208,93 @@ export function NewsForm({
     insertHtml(`<code>${text}</code>`)
   }
 
+  function handleTextColor(color: string) {
+    exec("foreColor", color)
+  }
+
+  function handleHighlight(color: string) {
+    if (color === "transparent") {
+      exec("removeFormat")
+    } else {
+      exec("hiliteColor", color)
+    }
+  }
+
+  function handleClearFormat() {
+    exec("removeFormat")
+  }
+
+  /* ─── Drag & Drop images ────────────────────────────────────────── */
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true)
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    const imageFile = files.find((f) => f.type.startsWith("image/"))
+    if (!imageFile) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const result = event.target?.result as string
+      if (result) {
+        insertUploadedImage(result)
+      }
+    }
+    reader.readAsDataURL(imageFile)
+  }
+
+  /* ─── Clean paste handler ───────────────────────────────────────── */
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const html = e.clipboardData.getData("text/html")
+    if (!html) return // let browser handle plain text paste
+
+    e.preventDefault()
+
+    // Create a temporary container to sanitize HTML
+    const temp = document.createElement("div")
+    temp.innerHTML = html
+
+    // Remove Word/Google Docs artifacts
+    temp.querySelectorAll("meta, style, script, link, title, o\\:p").forEach((el) => el.remove())
+
+    // Strip class/id/style from all elements (keep href/src/alt)
+    temp.querySelectorAll("*").forEach((el) => {
+      const tag = el.tagName.toLowerCase()
+      const allowedAttrs = ["href", "src", "alt", "target", "rel"]
+      const attrs = Array.from(el.attributes)
+      attrs.forEach((attr) => {
+        if (!allowedAttrs.includes(attr.name)) {
+          el.removeAttribute(attr.name)
+        }
+      })
+      // Remove empty spans
+      if (tag === "span" && !el.attributes.length && el.textContent) {
+        el.replaceWith(document.createTextNode(el.textContent))
+      }
+    })
+
+    const cleanHtml = temp.innerHTML
+    document.execCommand("insertHTML", false, cleanHtml)
+    syncFromEditor()
+  }
+
   /* ─── Keyboard shortcuts ────────────────────────────────────────── */
 
   useEffect(() => {
@@ -201,6 +314,10 @@ export function NewsForm({
           e.preventDefault()
           exec("italic")
           break
+        case "u":
+          e.preventDefault()
+          exec("underline")
+          break
         case "e":
           e.preventDefault()
           handleCode()
@@ -208,6 +325,20 @@ export function NewsForm({
         case "k":
           e.preventDefault()
           insertLink()
+          break
+        case "z":
+          e.preventDefault()
+          if (e.shiftKey) {
+            exec("redo")
+          } else {
+            exec("undo")
+          }
+          break
+        case "s":
+          if (e.shiftKey) {
+            e.preventDefault()
+            exec("strikeThrough")
+          }
           break
       }
     }
@@ -283,10 +414,11 @@ export function NewsForm({
 
   const stats = useMemo(() => {
     const text = content.trim()
-    if (!text) return { chars: 0, words: 0 }
+    if (!text) return { chars: 0, words: 0, readingTime: 0 }
     const chars = text.length
     const words = text.split(/\s+/).filter(Boolean).length
-    return { chars, words }
+    const readingTime = Math.max(1, Math.ceil(words / 200))
+    return { chars, words, readingTime }
   }, [content])
 
   return (
@@ -438,32 +570,13 @@ export function NewsForm({
         </div>
       </div>
 
-      <Separator />
-
-      {/* ─── Section: Content editor ──────────────────────── */}
-      <div className="border-b border-border bg-muted/20 px-5 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-            <Type className="h-3.5 w-3.5" />
-            Conteúdo
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={autoFormat}
-            className="h-7 gap-1.5 text-xs"
-          >
-            <Sparkles className="h-3 w-3" />
-            Formatar
-          </Button>
-        </div>
-      </div>
 
       <div className="relative">
         <FormatterToolbar
           onBold={() => exec("bold")}
           onItalic={() => exec("italic")}
+          onUnderline={() => exec("underline")}
+          onStrikethrough={() => exec("strikeThrough")}
           onH1={() => exec("formatBlock", "h1")}
           onH2={() => exec("formatBlock", "h2")}
           onH3={() => exec("formatBlock", "h3")}
@@ -475,7 +588,28 @@ export function NewsForm({
           onUploadImage={insertUploadedImage}
           onCode={handleCode}
           onHr={insertHorizontalRule}
+          onAlignLeft={() => exec("justifyLeft")}
+          onAlignCenter={() => exec("justifyCenter")}
+          onAlignRight={() => exec("justifyRight")}
+          onAlignJustify={() => exec("justifyFull")}
+          onUndo={() => exec("undo")}
+          onRedo={() => exec("redo")}
+          onTextColor={handleTextColor}
+          onHighlight={handleHighlight}
+          onClearFormat={handleClearFormat}
+          onIndent={() => exec("indent")}
+          onOutdent={() => exec("outdent")}
+          activeFormats={activeFormats}
         />
+
+        {/* ─── Drag overlay ─────────────────────────────── */}
+        <div className={cn("editor-drag-overlay", isDragging && "active")}>
+          <div className="editor-drag-overlay-content">
+            <ImagePlus className="h-8 w-8" />
+            <span>Solte a imagem aqui</span>
+          </div>
+        </div>
+
         <div
           ref={editorRef}
           contentEditable
@@ -483,13 +617,22 @@ export function NewsForm({
           role="textbox"
           aria-multiline="true"
           data-placeholder="Escreva o conteúdo da matéria..."
-          onSelect={saveSelection}
+          onSelect={() => {
+            saveSelection()
+            queryActiveFormats()
+          }}
+          onKeyUp={queryActiveFormats}
+          onMouseUp={queryActiveFormats}
           onBlur={() => {
             saveSelection()
             syncFromEditor()
           }}
           onInput={syncFromEditor}
-          className="editor-area min-h-[360px] resize-y overflow-auto px-4 py-3 text-sm leading-relaxed text-foreground transition-shadow focus:outline-none focus-visible:ring-0"
+          onPaste={handlePaste}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className="editor-area min-h-[400px] resize-y overflow-auto px-5 py-4 text-foreground transition-shadow focus:outline-none focus-visible:ring-0"
         />
 
         {/* ─── Status bar ─────────────────────────────────── */}
@@ -498,19 +641,13 @@ export function NewsForm({
             {stats.words} {stats.words === 1 ? "palavra" : "palavras"} ·{" "}
             {stats.chars} {stats.chars === 1 ? "caractere" : "caracteres"}
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Markdown
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            ~{stats.readingTime} min de leitura
           </span>
         </div>
       </div>
 
-      <div className="px-5 pb-4 pt-2">
-        <p className="text-xs text-muted-foreground">
-          Use a barra de formatação ou atalhos de teclado (⌘B, ⌘I, ⌘E, ⌘K).
-          O conteúdo é salvo em Markdown.
-        </p>
-      </div>
     </Card>
   )
 }

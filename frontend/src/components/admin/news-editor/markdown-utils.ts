@@ -20,6 +20,12 @@ function inline(s: string) {
     )
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/~~([^~]+)~~/g, "<s>$1</s>")
+    .replace(/==([^=]+)==/g, "<mark>$1</mark>")
+    .replace(
+      /&lt;u&gt;(.*?)&lt;\/u&gt;/g,
+      "<u>$1</u>"
+    )
     .replace(
       /!\[([^\]]*)\]\(([^)\s]+)\)/g,
       '<img src="$2" alt="$1" class="mt-2 rounded-md max-w-full" />'
@@ -131,6 +137,17 @@ function inlineToMarkdown(node: Node): string {
       case "i":
         out += `*${inner}*`
         break
+      case "u":
+        out += `<u>${inner}</u>`
+        break
+      case "s":
+      case "del":
+      case "strike":
+        out += `~~${inner}~~`
+        break
+      case "mark":
+        out += `==${inner}==`
+        break
       case "code":
         out += `\`${inner}\``
         break
@@ -145,6 +162,21 @@ function inlineToMarkdown(node: Node): string {
       case "img":
         out += `![${el.getAttribute("alt") ?? ""}](${el.getAttribute("src") ?? ""})`
         break
+      case "span": {
+        // Preserve colored text / highlighted text from execCommand
+        const style = el.getAttribute("style") ?? ""
+        if (style.includes("background-color")) {
+          out += `==${inner}==`
+        } else {
+          out += inner
+        }
+        break
+      }
+      case "font": {
+        // execCommand('foreColor') wraps in <font color="...">
+        out += inner
+        break
+      }
       default:
         out += inner
     }

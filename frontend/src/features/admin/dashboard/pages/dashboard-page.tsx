@@ -10,18 +10,23 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { PageHeader } from "@/components/admin/admin-shell"
-import { useAdminStore } from "@/components/admin/admin-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useNews } from "@/features/admin/news/hooks/use-news"
+import { useBanners } from "@/features/admin/ads/hooks/use-banners"
 
 export default function AdminDashboardPage() {
-  const { ready, articles, ads } = useAdminStore()
+  const { data: newsResponse, isLoading: loadingNews } = useNews({ limit: 50 })
+  const { data: bannersResponse, isLoading: loadingBanners } = useBanners({ limit: 50 })
 
-  if (!ready) return null
+  if (loadingNews || loadingBanners) return null
 
-  const published = articles.filter((a) => a.status === "Publicado").length
-  const drafts = articles.filter((a) => a.status === "Rascunho").length
-  const activeAds = ads.filter((a) => a.active).length
+  const articles = newsResponse?.data ?? []
+  const banners = bannersResponse?.data ?? []
+
+  const published = articles.filter((a) => a.status === "published").length
+  const drafts = articles.filter((a) => a.status === "draft").length
+  const activeBanners = banners.filter((b) => b.active).length
 
   const stats = [
     {
@@ -38,19 +43,19 @@ export default function AdminDashboardPage() {
     },
     {
       label: "Anúncios ativos",
-      value: activeAds,
+      value: activeBanners,
       icon: Radio,
-      hint: `de ${ads.length} campanhas`,
+      hint: `de ${banners.length} campanhas`,
     },
     {
       label: "Campanhas",
-      value: ads.length,
+      value: banners.length,
       icon: Megaphone,
       hint: "cadastradas",
     },
   ]
 
-  const recent = [...articles].slice(0, 5)
+  const recent = articles.slice(0, 5)
 
   return (
     <div className="p-6 lg:p-10">
@@ -93,17 +98,17 @@ export default function AdminDashboardPage() {
             {recent.map((a) => (
               <div key={a.id} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
                 <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                  <Image src={a.image || "/placeholder.svg"} alt="" fill className="object-cover" sizes="64px" />
+                  <Image src={a.cover?.path || "/placeholder.svg"} alt="" fill className="object-cover" sizes="64px" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{a.title}</p>
-                  <p className="text-xs text-muted-foreground">{a.category}</p>
+                  <p className="text-xs text-muted-foreground">{a.category.name}</p>
                 </div>
                 <Badge
-                  variant={a.status === "Publicado" ? "default" : "secondary"}
-                  className={a.status === "Publicado" ? "bg-secondary text-secondary-foreground" : ""}
+                  variant={a.status === "published" ? "default" : "secondary"}
+                  className={a.status === "published" ? "bg-secondary text-secondary-foreground" : ""}
                 >
-                  {a.status}
+                  {a.status === "published" ? "Publicado" : a.status === "archived" ? "Arquivada" : "Rascunho"}
                 </Badge>
               </div>
             ))}
@@ -121,19 +126,19 @@ export default function AdminDashboardPage() {
             </Link>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {ads.filter((a) => a.active).length === 0 && (
+            {banners.filter((b) => b.active).length === 0 && (
               <p className="text-sm text-muted-foreground">Nenhuma campanha ativa.</p>
             )}
-            {ads
-              .filter((a) => a.active)
-              .map((ad) => (
-                <div key={ad.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+            {banners
+              .filter((b) => b.active)
+              .map((b) => (
+                <div key={b.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                   <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-muted">
-                    <Image src={ad.image || "/placeholder.svg"} alt="" fill className="object-cover" sizes="56px" />
+                    <Image src={b.items[0]?.file.path || "/placeholder.svg"} alt="" fill className="object-cover" sizes="56px" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{ad.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{ad.advertiser}</p>
+                    <p className="truncate text-sm font-medium text-foreground">{b.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{b.advertiser}</p>
                   </div>
                 </div>
               ))}
