@@ -11,13 +11,13 @@ import {
   FilePlus2,
   FolderTree,
   Hash,
-  Image as ImageIcon,
   LayoutDashboard,
   LogOut,
   Megaphone,
   Menu,
   Newspaper,
   Settings,
+  SlidersHorizontal,
   Users,
   X,
 } from "lucide-react"
@@ -43,7 +43,7 @@ const settingsSubNav = [
   { href: "/admin/configuracoes/categorias", label: "Categorias", icon: FolderTree },
   { href: "/admin/configuracoes/autores", label: "Autores", icon: Users },
   { href: "/admin/configuracoes/tags", label: "Tags", icon: Hash },
-  { href: "/admin/configuracoes/midias", label: "Mídias", icon: ImageIcon },
+  { href: "/admin/configuracoes/parametros", label: "Parâmetros", icon: SlidersHorizontal },
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

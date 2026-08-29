@@ -6,11 +6,14 @@ import Link from "next/link"
 import { CategoryBadge } from "./category-badge"
 import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
 import { selectHomeSections } from "../utils/showcase"
+import { filterByQuery } from "../utils/filter-by-query"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent, type PublicNews } from "../types/news"
 import { assetPath } from "@/lib/utils"
 import { useSelectedCategory } from "../contexts/category-context"
+import { useSearch } from "../contexts/search-context"
 import { AdBanner } from "./ad-banner"
+import { BANNER_INTERVAL } from "@/lib/portal-params"
 
 function FeaturedCard({ article }: { article: PublicNews }) {
   return (
@@ -64,16 +67,18 @@ export function FeaturedGrid({
   showMiddleBanner?: boolean
 }) {
   const { selectedSlug } = useSelectedCategory()
+  const { searchQuery } = useSearch()
   const { data } = usePortalNews({
     ...SHOWCASE_PARAMS,
     ...(selectedSlug ? { category: selectedSlug } : {}),
   })
-  const { featured } = selectHomeSections(data?.data ?? [])
+  const { featured } = selectHomeSections(
+    filterByQuery(data?.data ?? [], searchQuery),
+  )
 
   if (featured.length === 0) return null
 
   // Divide a lista em blocos e intercala um banner "middle" entre eles.
-  const BANNER_INTERVAL = 8
   const blocks: PublicNews[][] = []
   for (let i = 0; i < featured.length; i += BANNER_INTERVAL) {
     blocks.push(featured.slice(i, i + BANNER_INTERVAL))

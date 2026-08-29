@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useServeBanners } from "../hooks/use-serve-banners"
 import type { BannerPosition, PublicBannerItem } from "../types/banner"
 
@@ -22,7 +23,23 @@ export function AdBanner({
   className?: string
 }) {
   const position = POSITION_BY_SIZE[size]
-  const { data } = useServeBanners()
+  const { data, isLoading } = useServeBanners()
+
+  if (isLoading) {
+    return (
+      <Skeleton
+        className={cn(
+          "rounded-xl",
+          size === "box"
+            ? "aspect-square w-full"
+            : size === "middle"
+              ? "h-40 w-full sm:h-44"
+              : "h-24 w-full sm:h-28",
+          className
+        )}
+      />
+    )
+  }
 
   // Posição vazia não é erro: volta ao espaço reservado.
   const items = data?.[position] ?? []

@@ -4,14 +4,15 @@ import {
   type PublicNews,
   type PublicNewsPosition,
 } from "../types/news"
+import {
+  HERO_SECONDARY_COUNT,
+  MOST_READ_COUNT,
+  LATEST_COUNT,
+} from "@/lib/portal-params"
 
 // Quem monta a home é o cliente (§4.1): o servidor só devolve published
 // ordenado por publishedAt DESC. Slots exclusivos: destaque, topo, rodape.
 // Aceitam vários: feed, lateral.
-
-const HERO_SECONDARY_COUNT = 2
-const MOST_READ_COUNT = 5
-const LATEST_COUNT = 5
 
 function recency(news: PublicNews): number {
   return Date.parse(news.publishedAt ?? news.createdAt)

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, FolderTree, Hash, Image as ImageIcon, Settings, Users } from "lucide-react"
+import { ArrowRight, FolderTree, Hash, Settings, SlidersHorizontal, Users } from "lucide-react"
 import { PageHeader } from "@/components/admin/admin-shell"
 import { useAdminStore } from "@/components/admin/admin-store"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export default function SettingsOverviewPage() {
-  const { ready, categories, authors, tags, media } = useAdminStore()
+  const { ready, categories, authors, tags } = useAdminStore()
 
   if (!ready) return null
 
@@ -42,12 +42,12 @@ export default function SettingsOverviewPage() {
       color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
     },
     {
-      title: "Biblioteca de Mídias",
-      description: "Acervo centralizado de fotos, vídeos e documentos anexados no portal.",
-      icon: ImageIcon,
-      count: `${media.length} mídias`,
-      activeCount: `${media.filter((m) => m.type === "image").length} imagens`,
-      href: "/admin/configuracoes/midias",
+      title: "Parâmetros",
+      description: "Constantes de comportamento do portal: limites de grade, contagem de seções e parâmetros de paginação da API.",
+      icon: SlidersHorizontal,
+      count: `13 parâmetros`,
+      activeCount: `Layout & API`,
+      href: "/admin/configuracoes/parametros",
       color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     },
   ]
