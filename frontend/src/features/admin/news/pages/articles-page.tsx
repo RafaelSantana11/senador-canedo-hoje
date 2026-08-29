@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import {
   ChevronDown,
   ChevronUp,
@@ -10,10 +9,6 @@ import {
   Plus,
   Search,
   Trash2,
-  Layout,
-  List,
-  X,
-  Move,
   Info,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -34,7 +29,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -60,6 +54,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { assetPath } from "@/lib/utils"
+
+// Ordem de exibição das posições no painel. Feed Central e Barra Lateral são
+// os únicos que aceitam várias matérias e respeitam a ordem manual (positionOrder).
+const POSITION_RANK: Record<string, number> = {
+  normal: 0,
+  topo: 1,
+  destaque: 2,
+  feed: 3,
+  lateral: 4,
+  rodape: 5,
+}
+
+const POSITION_ITEMS: { value: NewsPosition; label: string }[] = [
+  { value: "normal", label: "Geral / Nenhuma" },
+  { value: "topo", label: "Faixa Superior" },
+  { value: "destaque", label: "Destaque Principal" },
+  { value: "feed", label: "Feed Central" },
+  { value: "lateral", label: "Barra Lateral" },
+  { value: "rodape", label: "Rodapé" },
+]
 
 export default function ArticlesPage() {
   const { data, isLoading } = useNews({ limit: 50 })
@@ -71,50 +86,34 @@ export default function ArticlesPage() {
 
   const [query, setQuery] = useState("")
   const [toDelete, setToDelete] = useState<NewsRow | null>(null)
-  const [activeTab, setActiveTab] = useState("list")
 
   const isFiltering = query.trim().length > 0
 
   // Filter and sort articles for list view
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
-    )
+    const base = q
+      ? rows.filter(
+          (a) =>
+            a.title.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
+        )
+      : rows
+
+    return [...base].sort((a, b) => {
+      const rankA = POSITION_RANK[a.position] ?? 0
+      const rankB = POSITION_RANK[b.position] ?? 0
+      if (rankA !== rankB) return rankA - rankB
+
+      // Dentro de feed/lateral, respeita a ordem manual escolhida pelas setas.
+      if (a.position === "feed" || a.position === "lateral") {
+        const orderDiff = readPositionOrder(a.config) - readPositionOrder(b.config)
+        if (orderDiff !== 0) return orderDiff
+      }
+
+      // Desempate: mais recente primeiro.
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    })
   }, [rows, query])
-
-  // Get articles assigned to specific sections
-  const topoArticle = useMemo(
-    () => rows.find((a) => a.position === "topo" && a.status === "Publicado"),
-    [rows]
-  )
-  const destaqueArticle = useMemo(
-    () => rows.find((a) => a.position === "destaque" && a.status === "Publicado"),
-    [rows]
-  )
-  const feedArticles = useMemo(
-    () => rows.filter((a) => a.position === "feed" && a.status === "Publicado"),
-    [rows]
-  )
-  const lateralArticles = useMemo(
-    () => rows.filter((a) => a.position === "lateral" && a.status === "Publicado"),
-    [rows]
-  )
-  const rodapeArticle = useMemo(
-    () => rows.find((a) => a.position === "rodape" && a.status === "Publicado"),
-    [rows]
-  )
-
-  // Unplaced or general published articles available to be positioned
-  const unplacedArticles = useMemo(() => {
-    return rows.filter(
-      (a) =>
-        a.status === "Publicado" &&
-        (!a.position || a.position === "normal")
-    )
-  }, [rows])
 
   if (isLoading) return null
 
@@ -171,38 +170,36 @@ export default function ArticlesPage() {
       return
     }
 
+    // Ordem atual do slot (positionOrder; desempate por data). Muitas matérias
+    // chegam com positionOrder duplicado/0, então apenas trocar dois valores
+    // não produzia mudança visível — por isso a sequência é reemitida contígua.
     const slot = rows
       .filter((r) => r.position === row.position)
-      .sort((a, b) => readPositionOrder(a.config) - readPositionOrder(b.config))
+      .sort(
+        (a, b) =>
+          readPositionOrder(a.config) - readPositionOrder(b.config) ||
+          Date.parse(b.createdAt) - Date.parse(a.createdAt)
+      )
     const idx = slot.findIndex((r) => r.id === id)
     const swapIdx = direction === "up" ? idx - 1 : idx + 1
     if (idx < 0 || swapIdx < 0 || swapIdx >= slot.length) return
 
-    const neighbor = slot[swapIdx]
-    updatePosition.mutate(
-      [
-        { id, payload: { config: { ...row.config, positionOrder: readPositionOrder(neighbor.config) } } },
-        { id: neighbor.id, payload: { config: { ...neighbor.config, positionOrder: readPositionOrder(row.config) } } },
-      ],
-      {
-        onSuccess: () => toast.success("Ordem atualizada."),
-        onError: () => toast.error("Não foi possível reordenar."),
-      }
-    )
+    const reordered = [...slot]
+    const [moved] = reordered.splice(idx, 1)
+    reordered.splice(swapIdx, 0, moved)
+
+    // Renumera o slot inteiro (0..n-1) na nova ordem e grava tudo.
+    const patches: NewsPatch[] = reordered.map((r, i) => ({
+      id: r.id,
+      payload: { config: { ...r.config, position: r.position, positionOrder: i } },
+    }))
+
+    updatePosition.mutate(patches, {
+      onSuccess: () => toast.success("Ordem atualizada."),
+      onError: () => toast.error("Não foi possível reordenar."),
+    })
   }
 
-  // Drag and drop handlers
-  function handleDragStart(e: React.DragEvent, id: string) {
-    e.dataTransfer.setData("text/plain", id)
-  }
-
-  function handleDrop(e: React.DragEvent, targetPosition: NewsRow["position"]) {
-    e.preventDefault()
-    const id = e.dataTransfer.getData("text/plain")
-    if (!id || !targetPosition) return
-
-    handlePositionChange(id, targetPosition)
-  }
 
   function confirmDelete() {
     if (toDelete) {
@@ -236,12 +233,12 @@ export default function ArticlesPage() {
       }
     )
   }
-  
+
   return (
     <div className="p-6 lg:p-10">
       <PageHeader
         title="Notícias"
-        description="Gerencie as matérias do portal e organize a ordem e posicionamento no site."
+        description="Gerencie as matérias do portal."
         action={
           <Link href="/admin/newNews">
             <Button className="gap-2">
@@ -252,546 +249,185 @@ export default function ArticlesPage() {
         }
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-          <TabsTrigger value="list" className="gap-2">
-            <List className="h-4 w-4" />
-            Lista de Matérias
-          </TabsTrigger>
-          <TabsTrigger value="layout" className="gap-2">
-            <Layout className="h-4 w-4" />
-            Organizar Layout Visual
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ─── TAB 1: LIST VIEW ────────────────────────────────────────── */}
-        <TabsContent value="list" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative w-full max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por título ou categoria"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+      <div className="mt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por título ou categoria"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
+        </div>
 
-          {!isFiltering && (
-            <div className="flex items-center gap-2 rounded-lg bg-accent/40 p-3 text-xs text-muted-foreground">
-              <Info className="h-4 w-4 text-primary shrink-0" />
-              <span>
-                Use as setas na coluna <b>Ordem</b> para reordenar o feed central e a barra lateral.
-              </span>
-            </div>
-          )}
+        {!isFiltering && (
+          <div className="flex items-center gap-2 rounded-lg bg-accent/40 p-3 text-xs text-muted-foreground">
+            <Info className="h-4 w-4 text-primary shrink-0" />
+            <span>
+              Use as setas na coluna <b>Ordem</b> para reordenar o feed central e a barra lateral.
+            </span>
+          </div>
+        )}
 
-          <Card className="overflow-hidden border-border p-0 shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  {!isFiltering && (
-                    <TableHead className="w-[72px] text-center">Ordem</TableHead>
-                  )}
-                  <TableHead className="min-w-[280px]">Título</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Posição</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((a, idx) => {
-                  const isFirst = idx === 0
-                  const isLast = idx === filtered.length - 1
-                  const isActive = a.status === "Publicado"
+        <Card className="overflow-hidden border-border p-0 shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                {!isFiltering && (
+                  <TableHead className="w-[72px] text-center">Ordem</TableHead>
+                )}
+                <TableHead className="min-w-[280px]">Título</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Posição</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((a, idx) => {
+                // Reordenação manual vale apenas para Feed Central e Barra Lateral.
+                const canReorder = a.position === "feed" || a.position === "lateral"
 
-                  return (
-                    <TableRow
-                      key={a.id}
-                      className={!isActive ? "opacity-60" : undefined}
-                    >
-                      {!isFiltering && (
-                        <TableCell>
-                          <div className="flex flex-col items-center gap-0.5">
-                            <button
-                              onClick={() => handleMove(a.id, "up")}
-                              disabled={isFirst}
-                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                              aria-label="Mover para cima"
-                            >
-                              <ChevronUp className="h-4 w-4" />
-                            </button>
-                            <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
-                              {idx + 1}
-                            </span>
-                            <button
-                              onClick={() => handleMove(a.id, "down")}
-                              disabled={isLast}
-                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                              aria-label="Mover para baixo"
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </TableCell>
-                      )}
+                // Posição do item dentro do seu próprio bloco (para setas).
+                const slot = filtered.filter((r) => r.position === a.position)
+                const slotIdx = slot.findIndex((r) => r.id === a.id)
+                const isSlotFirst = slotIdx === 0
+                const isSlotLast = slotIdx === slot.length - 1
+
+                const isActive = a.status === "Publicado"
+
+                return (
+                  <TableRow
+                    key={a.id}
+                    className={!isActive ? "opacity-60" : undefined}
+                  >
+                    {!isFiltering && (
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                            <Image src={a?.image || "/placeholder.svg"} alt="" fill className="object-cover" sizes="64px" />
-                          </div>
-                          <div className="flex min-w-0 flex-col">
-                            <span className="line-clamp-2 text-sm font-medium text-foreground">
-                              {a.title}
-                            </span>
-                            {a.urgent && (
-                              <span className="mt-0.5 w-fit text-[9px] font-semibold uppercase text-destructive">
-                                Urgente
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">{a.category}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={a.position || "normal"}
-                          onValueChange={(val) => {
-                            handlePositionChange(a.id, val as NewsPosition)
-                          }}
-                        >
-                          <SelectTrigger className="h-8 w-32 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">Geral / Nenhuma</SelectItem>
-                            <SelectItem value="topo">Faixa Superior</SelectItem>
-                            <SelectItem value="destaque">Destaque Principal</SelectItem>
-                            <SelectItem value="feed">Feed Central</SelectItem>
-                            <SelectItem value="lateral">Barra Lateral</SelectItem>
-                            <SelectItem value="rodape">Rodapé</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col items-center gap-1.5">
-                          <Switch
-                            checked={isActive}
-                            onCheckedChange={() => handleToggle(a)}
-                            aria-label={isActive ? "Desativar" : "Ativar"}
-                          />
-                          <Badge
-                            variant={isActive ? "default" : "secondary"}
-                            className={
-                              isActive
-                                ? "bg-secondary text-secondary-foreground text-[10px]"
-                                : "text-[10px]"
-                            }
+                        <div className="flex flex-col items-center gap-0.5">
+                          <button
+                            onClick={() => handleMove(a.id, "up")}
+                            disabled={!canReorder || isSlotFirst}
+                            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                            aria-label="Mover para cima"
                           >
-                            {a.status}
-                          </Badge>
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+                            {idx + 1}
+                          </span>
+                          <button
+                            onClick={() => handleMove(a.id, "down")}
+                            disabled={!canReorder || isSlotLast}
+                            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                            aria-label="Mover para baixo"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Link href={`/admin/newNews?edit=${a.slug}`}>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              aria-label="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </Link>
+                    )}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+                          <img
+                            src={assetPath(a?.image || "/placeholder.svg")}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="flex min-w-0 flex-col">
+                          <span className="line-clamp-2 text-sm font-medium text-foreground">
+                            {a.title}
+                          </span>
+                          {a.urgent && (
+                            <span className="mt-0.5 w-fit text-[9px] font-semibold uppercase text-destructive">
+                              Urgente
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">{a.category}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={a.position || "normal"}
+                        items={POSITION_ITEMS}
+                        onValueChange={(val) => {
+                          handlePositionChange(a.id, val as NewsPosition)
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Geral / Nenhuma</SelectItem>
+                          <SelectItem value="topo">Faixa Superior</SelectItem>
+                          <SelectItem value="destaque">Destaque Principal</SelectItem>
+                          <SelectItem value="feed">Feed Central</SelectItem>
+                          <SelectItem value="lateral">Barra Lateral</SelectItem>
+                          <SelectItem value="rodape">Rodapé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Switch
+                          checked={isActive}
+                          onCheckedChange={() => handleToggle(a)}
+                          aria-label={isActive ? "Desativar" : "Ativar"}
+                        />
+                        <Badge
+                          variant={isActive ? "default" : "secondary"}
+                          className={
+                            isActive
+                              ? "bg-secondary text-secondary-foreground text-[10px]"
+                              : "text-[10px]"
+                          }
+                        >
+                          {a.status}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/admin/newNews?edit=${a.slug}`}>
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setToDelete(a)}
-                            aria-label="Excluir"
-                            className="text-destructive hover:text-destructive"
+                            aria-label="Editar"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={isFiltering ? 5 : 6} className="py-10 text-center text-sm text-muted-foreground">
-                      Nenhuma notícia encontrada.
+                        </Link>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setToDelete(a)}
+                          aria-label="Excluir"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        {/* ─── TAB 2: VISUAL LAYOUT EDITOR ─────────────────────────────── */}
-        <TabsContent value="layout" className="mt-4">
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            {/* Sidebar of unplaced/placed draggable items */}
-            <div className="flex flex-col gap-4 xl:col-span-1">
-              <div className="rounded-lg border border-border bg-card p-4">
-                <h3 className="font-serif text-lg font-bold text-foreground">
-                  Matérias Disponíveis
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Arraste os cards publicados para os blocos correspondentes do layout ou altere sua posição usando o menu seletor em cada card.
-                </p>
-
-                <div className="mt-4 space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                  {unplacedArticles.length === 0 && (
-                    <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground bg-muted/20">
-                      Nenhuma matéria geral disponível. Mova matérias já posicionadas de volta para &quot;Geral&quot; ou publique novas notícias.
-                    </div>
-                  )}
-
-                  {unplacedArticles.map((a) => (
-                    <div
-                      key={a.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, a.id)}
-                      className="group relative flex cursor-grab items-start gap-3 rounded-lg border border-border bg-card p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md active:cursor-grabbing"
-                    >
-                      <div className="absolute right-2 top-2 hidden group-hover:flex items-center gap-1 rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary">
-                        <Move className="h-3 w-3" /> Arrastar
-                      </div>
-                      <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded bg-muted">
-                        <Image src={a.image || "/placeholder.svg"} alt="" fill className="object-cover" sizes="80px" />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <p className="line-clamp-2 text-xs font-semibold leading-tight text-foreground pr-4">
-                          {a.title}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge variant="outline" className="h-4 px-1 text-[9px]">
-                            {a.category}
-                          </Badge>
-                          <Select
-                            value={a.position || "normal"}
-                            onValueChange={(val) => {
-                              handlePositionChange(a.id, val as NewsPosition)
-                            }}
-                          >
-                            <SelectTrigger className="h-5 w-24 px-1 text-[9px] bg-background">
-                              <SelectValue placeholder="Mover..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="normal">Geral</SelectItem>
-                              <SelectItem value="topo">Faixa Superior</SelectItem>
-                              <SelectItem value="destaque">Destaque</SelectItem>
-                              <SelectItem value="feed">Feed Central</SelectItem>
-                              <SelectItem value="lateral">Barra Lateral</SelectItem>
-                              <SelectItem value="rodape">Rodapé</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Portal Layout Representation (Drop zones) */}
-            <div className="space-y-4 xl:col-span-2">
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="mb-4 flex items-center justify-between border-b pb-3">
-                  <h3 className="font-serif text-lg font-bold text-foreground">
-                    Mockup do Portal Notícias
-                  </h3>
-                  <Badge variant="outline" className="bg-primary/5 text-primary text-xs py-0.5 px-2">
-                    Visualizador Interativo
-                  </Badge>
-                </div>
-
-                {/* INTERACTIVE MOCKUP PORTAL */}
-                <div className="rounded-xl border border-border bg-slate-50/50 p-4 dark:bg-zinc-950/20 space-y-4">
-                  
-                  {/* Browser chrome header bar */}
-                  <div className="flex items-center justify-between rounded bg-muted/80 px-3 py-1.5 text-xs text-muted-foreground font-mono">
-                    <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-destructive" />
-                      <span className="h-2 w-2 rounded-full bg-amber-500" />
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    </span>
-                    <span>senadorcanedohoje.com.br</span>
-                    <span className="w-10 text-right opacity-30">Menu</span>
-                  </div>
-
-                  {/* Header Logo */}
-                  <div className="border-b pb-4 pt-2 text-center">
-                    <h1 className="font-serif text-2xl font-black tracking-tight text-primary">
-                      SENADOR CANEDO HOJE
-                    </h1>
-                    <p className="text-[10px] text-muted-foreground font-sans tracking-widest uppercase">
-                      Jornalismo Local e em Tempo Real
-                    </p>
-                  </div>
-
-                  {/* DROPZONE: TOPO (FAIXA SUPERIOR) */}
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, "topo")}
-                    className={`relative rounded-md border-2 border-dashed p-3 transition-colors ${
-                      topoArticle
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className="absolute left-2 top-2 rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
-                      Faixa Superior (Leaderboard)
-                    </div>
-                    {topoArticle ? (
-                      <div className="mt-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded bg-muted">
-                            <Image src={topoArticle.image} alt="" fill className="object-cover" sizes="64px" />
-                          </div>
-                          <div>
-                            <p className="line-clamp-1 text-sm font-bold text-foreground">
-                              {topoArticle.title}
-                            </p>
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                              Categoria: {topoArticle.category} · {topoArticle.author}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handlePositionChange(topoArticle.id, "normal")}
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          aria-label="Remover"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="py-6 text-center text-xs text-muted-foreground flex flex-col items-center gap-1">
-                        <Move className="h-5 w-5 opacity-40" />
-                        <span>Arraste um card aqui para fixá-lo na faixa superior</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* DROPZONE: DESTAQUE PRINCIPAL */}
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, "destaque")}
-                    className={`relative rounded-lg border-2 border-dashed p-4 transition-colors ${
-                      destaqueArticle
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className="absolute left-2 top-2 z-10 rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase">
-                      Destaque Principal
-                    </div>
-                    {destaqueArticle ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="relative aspect-[21/9] w-full overflow-hidden rounded-md bg-muted">
-                          <Image src={destaqueArticle.image} alt="" fill className="object-cover" sizes="600px" />
-                          <div className="absolute bottom-2 right-2 flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="h-7 px-2.5 text-xs gap-1"
-                              onClick={() => handlePositionChange(destaqueArticle.id, "normal")}
-                            >
-                              <X className="h-3 w-3" /> Remover
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-primary hover:bg-primary/95 text-[10px] h-4">
-                              {destaqueArticle.category}
-                            </Badge>
-                            {destaqueArticle.urgent && (
-                              <Badge variant="destructive" className="text-[10px] h-4">
-                                URGENTE
-                              </Badge>
-                            )}
-                          </div>
-                          <h2 className="font-serif text-lg font-black text-foreground">
-                            {destaqueArticle.title}
-                          </h2>
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {destaqueArticle.excerpt}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-14 text-center text-xs text-muted-foreground flex flex-col items-center gap-1.5">
-                        <Move className="h-6 w-6 opacity-45" />
-                        <span className="font-medium">Bloco de Manchete Principal</span>
-                        <span className="text-[11px] opacity-75">Arraste a notícia mais importante do dia para cá</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SECTION ROW: LEFT FEED CENTRAL & RIGHT BARRA LATERAL */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    
-                    {/* DROPZONE: FEED CENTRAL */}
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => handleDrop(e, "feed")}
-                      className="md:col-span-2 relative rounded-lg border-2 border-dashed border-border p-4 transition-colors hover:border-primary/40 bg-background/50 space-y-3"
-                    >
-                      <div className="absolute left-2 top-2 rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
-                        Feed Central ({feedArticles.length})
-                      </div>
-                      
-                      <div className="pt-6 space-y-3 min-h-[160px]">
-                        {feedArticles.length === 0 ? (
-                          <div className="py-10 text-center text-xs text-muted-foreground flex flex-col items-center gap-1">
-                            <Move className="h-5 w-5 opacity-40" />
-                            <span>Arraste múltiplos cards aqui para preencher o feed principal</span>
-                          </div>
-                        ) : (
-                          feedArticles.map((art) => (
-                            <div
-                              key={art.id}
-                              className="flex items-center justify-between gap-3 p-2 rounded-md border bg-card/80 shadow-xs hover:border-primary/30"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded bg-muted">
-                                  <Image src={art.image} alt="" fill className="object-cover" sizes="56px" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="line-clamp-1 text-xs font-bold text-foreground">
-                                    {art.title}
-                                  </p>
-                                  <span className="text-[9px] text-muted-foreground">
-                                    {art.category} · Por {art.author}
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handlePositionChange(art.id, "normal")}
-                                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* DROPZONE: BARRA LATERAL */}
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => handleDrop(e, "lateral")}
-                      className="relative rounded-lg border-2 border-dashed border-border p-4 transition-colors hover:border-primary/40 bg-background/50 space-y-3"
-                    >
-                      <div className="absolute left-2 top-2 rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
-                        Barra Lateral ({lateralArticles.length})
-                      </div>
-                      
-                      <div className="pt-6 space-y-3 min-h-[160px]">
-                        {lateralArticles.length === 0 ? (
-                          <div className="py-10 text-center text-xs text-muted-foreground flex flex-col items-center gap-1">
-                            <Move className="h-5 w-5 opacity-40" />
-                            <span>Arraste múltiplos cards aqui para a barra lateral</span>
-                          </div>
-                        ) : (
-                          lateralArticles.map((art) => (
-                            <div
-                              key={art.id}
-                              className="flex flex-col gap-1.5 p-2 rounded-md border bg-card/80 shadow-xs hover:border-primary/30"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[9px] font-bold text-secondary uppercase">
-                                  {art.category}
-                                </span>
-                                <button
-                                  onClick={() => handlePositionChange(art.id, "normal")}
-                                  className="text-muted-foreground hover:text-destructive rounded hover:bg-muted p-0.5"
-                                  aria-label="Remover"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                              <p className="line-clamp-2 text-xs font-bold leading-tight text-foreground">
-                                {art.title}
-                              </p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* DROPZONE: RODAPÉ */}
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, "rodape")}
-                    className={`relative rounded-md border-2 border-dashed p-3 transition-colors ${
-                      rodapeArticle
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className="absolute left-2 top-2 rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground uppercase">
-                      Rodapé (Seção Inferior)
-                    </div>
-                    {rodapeArticle ? (
-                      <div className="mt-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded bg-muted">
-                            <Image src={rodapeArticle.image} alt="" fill className="object-cover" sizes="64px" />
-                          </div>
-                          <div>
-                            <p className="line-clamp-1 text-sm font-bold text-foreground">
-                              {rodapeArticle.title}
-                            </p>
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                              Categoria: {rodapeArticle.category} · Por {rodapeArticle.author}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handlePositionChange(rodapeArticle.id, "normal")}
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          aria-label="Remover"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="py-6 text-center text-xs text-muted-foreground flex flex-col items-center gap-1">
-                        <Move className="h-5 w-5 opacity-40" />
-                        <span>Arraste um card aqui para posicioná-lo no rodapé</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Mock Footer */}
-                  <div className="rounded bg-muted/50 p-2 text-center text-[10px] text-muted-foreground">
-                    © 2026 Senador Canedo Hoje. Todos os direitos reservados.
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+                )
+              })}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={isFiltering ? 5 : 6} className="py-10 text-center text-sm text-muted-foreground">
+                    Nenhuma notícia encontrada.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
 
       <AlertDialog open={!!toDelete} onOpenChange={(v) => !v && setToDelete(null)}>
         <AlertDialogContent>

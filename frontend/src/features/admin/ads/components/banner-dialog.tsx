@@ -187,7 +187,7 @@ export function BannerDialog({
                 control={control}
                 name="position"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={(v) => v && field.onChange(v as BannerPosition)}>
+                  <Select value={field.value} items={POSITION_LABELS} onValueChange={(v) => v && field.onChange(v as BannerPosition)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

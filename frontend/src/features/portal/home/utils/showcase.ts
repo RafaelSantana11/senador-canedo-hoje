@@ -10,7 +10,6 @@ import {
 // Aceitam vários: feed, lateral.
 
 const HERO_SECONDARY_COUNT = 2
-const FEATURED_COUNT = 8
 const MOST_READ_COUNT = 5
 const LATEST_COUNT = 5
 
@@ -59,35 +58,52 @@ export type HomeSections = {
   featured: PublicNews[]
   mostRead: PublicNews[]
   latest: PublicNews[]
+  sawThis: PublicNews[]
 }
 
 /**
  * Deriva todas as seções da home de uma única listagem publicada, na ordem
- * editorial: hero → secundárias → grade → mais lidas → últimas. Cada seção
- * consome o que sobrou das anteriores; com acervo pequeno as listas encolhem.
+ * editorial: hero → secundárias → grade → mais lidas → últimas.
  */
 export function selectHomeSections(list: PublicNews[]): HomeSections {
-  const recent = sortRecent(list)
+  // As marcadas como "lateral" ("Viu isso?") saem do feed geral e das
+  // "últimas": o pool "recent" usado pelas seções de conteúdo já as exclui.
+  const recent = sortRecent(
+    list.filter((n) => readPosition(n.config) !== "lateral"),
+  )
 
   const hero = slotItems(list, "destaque")[0] ?? recent[0] ?? null
-  const usedIds = new Set(hero ? [hero.id] : [])
+  const heroIds = new Set(hero ? [hero.id] : [])
 
   const heroSecondary = fillFrom(
     [slotItems(list, "topo"), recent],
-    usedIds,
+    heroIds,
     HERO_SECONDARY_COUNT,
   )
+
+  // Grade principal: TODAS as notícias que não entraram no hero/secundárias,
+  // priorizando as marcadas como "feed" e completando com as mais recentes.
+  // Usa um Set próprio para não esvaziar as seções da sidebar.
   const featured = fillFrom(
     [slotItems(list, "feed"), recent],
-    usedIds,
-    FEATURED_COUNT,
+    new Set(heroIds),
+    Number.MAX_SAFE_INTEGER,
   )
+
   const mostRead = fillFrom(
     [[...list].sort((a, b) => b.views - a.views)],
-    usedIds,
+    new Set<string>(),
     MOST_READ_COUNT,
   )
-  const latest = fillFrom([slotItems(list, "lateral"), recent], usedIds, LATEST_COUNT)
+  // "Últimas notícias": agora apenas as realmente recentes. As marcadas como
+  // "lateral" deixaram de ser pinadas aqui e ganharam a seção própria "Viu isso?".
+  const latest = fillFrom(
+    [recent],
+    new Set(heroIds),
+    LATEST_COUNT,
+  )
+  // "Viu isso?": matérias marcadas como "lateral", na ordem definida no painel.
+  const sawThis = slotItems(list, "lateral")
 
-  return { hero, heroSecondary, featured, mostRead, latest }
+  return { hero, heroSecondary, featured, mostRead, latest, sawThis }
 }

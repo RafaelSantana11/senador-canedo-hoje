@@ -38,6 +38,7 @@ import {
 } from "@/features/admin/news/types/news"
 
 import { NewsForm } from "@/components/admin/news-editor/news-form"
+import { PromptProvider } from "@/components/admin/news-editor/prompt-dialog-provider"
 import { ArticlePreview } from "@/components/admin/news-editor/article-preview"
 import { generateExcerpt } from "@/components/admin/news-editor/markdown-utils"
 import { ArticlePage } from "@/features/portal/news/components/article-page"
@@ -323,26 +324,28 @@ function NewsEditor({
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
             {/* ─── EDITOR FORM ────────────────────────────────────────── */}
-            <NewsForm
-              title={title}
-              setTitle={setTitle}
-              category={category}
-              setCategory={setCategory}
-              categories={categoryNames}
-              tags={tags}
-              selectedTagIds={selectedTagIds}
-              setSelectedTagIds={setSelectedTagIds}
-              position={position}
-              setPosition={setPosition}
-              positionOrder={positionOrder}
-              setPositionOrder={setPositionOrder}
-              image={image}
-              setImage={setImage}
-              urgent={urgent}
-              setUrgent={setUrgent}
-              content={content}
-              setContent={setContent}
-            />
+            <PromptProvider>
+              <NewsForm
+                title={title}
+                setTitle={setTitle}
+                category={category}
+                setCategory={setCategory}
+                categories={categoryNames}
+                tags={tags}
+                selectedTagIds={selectedTagIds}
+                setSelectedTagIds={setSelectedTagIds}
+                position={position}
+                setPosition={setPosition}
+                positionOrder={positionOrder}
+                setPositionOrder={setPositionOrder}
+                image={image}
+                setImage={setImage}
+                urgent={urgent}
+                setUrgent={setUrgent}
+                content={content}
+                setContent={setContent}
+              />
+            </PromptProvider>
 
             {/* ─── PREVIEW CARD ───────────────────────────────────────── */}
             <Card className="overflow-hidden p-0">
@@ -375,7 +378,7 @@ function NewsEditor({
                   </div>
                 </div>
 
-                <div className="p-5">
+                <div className="px-3 py-1">
                   <TabsContent value="card" className="mt-0">
                     <ArticlePreview
                       title={title}

@@ -1,14 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Check, Clock, FileText, Hash, ImagePlus, Sparkles, Type } from "lucide-react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
+import { Check, Clock, FileText, Hash, ImagePlus } from "lucide-react"
+
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Separator } from "@/components/ui/separator"
 import {
   Select,
   SelectContent,
@@ -20,8 +18,10 @@ import { cn } from "@/lib/utils"
 import { FormatterToolbar, EMPTY_FORMATS, type ActiveFormats } from "./formatter-toolbar"
 import { ImageUploader } from "./image-uploader"
 import { htmlToMarkdown, renderMarkdown } from "./markdown-utils"
+import { usePromptText } from "./prompt-dialog-provider"
 
 import { type NewsPosition } from "@/features/admin/news/types/news"
+import { uploadContentImage } from "@/features/admin/news/services/files-service"
 
 function escapeAttr(s: string) {
   return s
@@ -92,6 +92,7 @@ export function NewsForm({
   const savedRangeRef = useRef<Range | null>(null)
   const [activeFormats, setActiveFormats] = useState<ActiveFormats>(EMPTY_FORMATS)
   const [isDragging, setIsDragging] = useState(false)
+  const { promptText } = usePromptText()
 
   function saveSelection() {
     const sel = window.getSelection()
@@ -175,26 +176,66 @@ export function NewsForm({
   /* ─── Command handlers ──────────────────────────────────────────── */
 
   function insertLink() {
-    const url = window.prompt("URL do link:", "https://")
-    if (!url) return
-    const range = savedRangeRef.current
-    if (range && !range.collapsed) {
-      exec("createLink", url)
-    } else {
-      insertHtml(`<a href="${escapeAttr(url)}">texto do link</a>`)
-    }
+    void (async () => {
+      const url = await promptText({
+        title: "Inserir link",
+        description: "Cole a URL do link externo.",
+        label: "URL do link",
+        placeholder: "https://",
+        defaultValue: "https://",
+        confirmLabel: "Inserir link",
+      })
+      if (!url) return
+      const range = savedRangeRef.current
+      if (range && !range.collapsed) {
+        exec("createLink", url)
+      } else {
+        insertHtml(`<a href="${escapeAttr(url)}">texto do link</a>`)
+      }
+    })()
   }
 
   function insertImage() {
-    const url = window.prompt("URL da imagem:", "https://")
-    if (!url) return
-    const alt = window.prompt("Texto alternativo:", "imagem") || "imagem"
-    insertHtml(`<img src="${escapeAttr(url)}" alt="${escapeAttr(alt)}" />`)
+    void (async () => {
+      const url = await promptText({
+        title: "Inserir imagem",
+        description: "Cole a URL da imagem a ser inserida.",
+        label: "URL da imagem",
+        placeholder: "https://",
+        defaultValue: "https://",
+        confirmLabel: "Inserir imagem",
+      })
+      if (!url) return
+      const alt = await promptText({
+        title: "Texto alternativo da imagem",
+        description: "Descreva a imagem para acessibilidade e SEO.",
+        label: "Descrição da imagem",
+        placeholder: "Ex: Vista aérea do centro de Senador Canedo",
+        defaultValue: "imagem",
+        confirmLabel: "Inserir imagem",
+      })
+      insertHtml(`<img src="${escapeAttr(url)}" alt="${escapeAttr(alt ?? "imagem")}" />`)
+    })()
   }
 
-  function insertUploadedImage(dataUrl: string) {
-    const alt = window.prompt("Texto alternativo da imagem:", "imagem") || "imagem"
-    insertHtml(`<img src="${dataUrl}" alt="${escapeAttr(alt)}" />`)
+  function insertUploadedImage(file: File) {
+    void (async () => {
+      const alt = await promptText({
+        title: "Texto alternativo da imagem",
+        description: "Descreva a imagem para acessibilidade e SEO.",
+        label: "Descrição da imagem",
+        placeholder: "Ex: Vista aérea do centro de Senador Canedo",
+        defaultValue: "imagem",
+        confirmLabel: "Inserir imagem",
+      })
+      if (!alt) return
+      try {
+        const src = await uploadContentImage(file)
+        insertHtml(`<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" />`)
+      } catch {
+        alert("Não foi possível enviar a imagem. Tente novamente.")
+      }
+    })()
   }
 
   function insertHorizontalRule() {
@@ -249,14 +290,7 @@ export function NewsForm({
     const imageFile = files.find((f) => f.type.startsWith("image/"))
     if (!imageFile) return
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const result = event.target?.result as string
-      if (result) {
-        insertUploadedImage(result)
-      }
-    }
-    reader.readAsDataURL(imageFile)
+    insertUploadedImage(imageFile)
   }
 
   /* ─── Clean paste handler ───────────────────────────────────────── */
@@ -348,70 +382,6 @@ export function NewsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exec])
 
-  /* ─── Auto-format helper ────────────────────────────────────────── */
-
-  function autoFormat() {
-    const raw = content.replace(/\r\n/g, "\n")
-    const lines = raw.split("\n").map((l) => l.replace(/[ \t]+$/g, ""))
-
-    const blocks: string[] = []
-    let buf: string[] = []
-    const flush = () => {
-      if (buf.length) {
-        blocks.push(buf.join("\n"))
-        buf = []
-      }
-    }
-    for (const l of lines) {
-      if (l.trim() === "") flush()
-      else buf.push(l)
-    }
-    flush()
-
-    const capitalizeSentences = (s: string) =>
-      s.replace(/(^|[.!?]\s+)([a-zà-ú])/g, (_m, p, c) => p + c.toUpperCase())
-
-    const fixPunctuation = (s: string) =>
-      s
-        .replace(/\s+([,.;:!?])/g, "$1")
-        .replace(/([,.;:!?])(?=[A-Za-zÀ-ú])/g, "$1 ")
-        .replace(/[ ]{2,}/g, " ")
-        .replace(/\s+$/g, "")
-        .trim()
-
-    const formatted = blocks
-      .map((b) => {
-        const first = b.trimStart()
-        if (/^(#{1,6}\s|[-*]\s|\d+\.\s|>\s?|---)/.test(first)) {
-          return b
-            .split("\n")
-            .map((ln) => {
-              const m = ln.match(/^(\s*(?:#{1,6}\s|[-*]\s|\d+\.\s|>\s?))(.*)$/)
-              if (!m) return fixPunctuation(ln)
-              return m[1] + capitalizeSentences(fixPunctuation(m[2]))
-            })
-            .join("\n")
-        }
-        const joined = b.replace(/\n+/g, " ")
-        return capitalizeSentences(fixPunctuation(joined))
-      })
-      .filter(Boolean)
-      .join("\n\n")
-
-    if (formatted === content) {
-      toast("Conteúdo já está formatado.")
-      return
-    }
-    lastContentRef.current = formatted
-    setContent(formatted)
-    if (editorRef.current) {
-      editorRef.current.innerHTML = renderMarkdown(formatted) || ""
-    }
-    toast.success("Conteúdo formatado automaticamente.")
-  }
-
-  /* ─── Content stats ─────────────────────────────────────────────── */
-
   const stats = useMemo(() => {
     const text = content.trim()
     if (!text) return { chars: 0, words: 0, readingTime: 0 }
@@ -424,14 +394,14 @@ export function NewsForm({
   return (
     <Card className="overflow-hidden p-0">
       {/* ─── Section: Article info ────────────────────────── */}
-      <div className="border-b border-border bg-muted/20 px-5 py-3">
+      <div className="border-b border-border bg-muted/20 px-5 py-2">
         <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           <FileText className="h-3.5 w-3.5" />
           Informações da matéria
         </div>
       </div>
 
-      <div className="grid gap-4 p-5">
+      <div className="grid gap-4 px-3 py-1">
         <div className="grid gap-2">
           <Label htmlFor="title">Título</Label>
           <Input
@@ -525,6 +495,7 @@ export function NewsForm({
             <Label htmlFor="position">Posição na Tela Principal</Label>
             <Select
               value={position}
+              items={POSITION_LABELS}
               onValueChange={(v) => setPosition?.(v as NewsPosition)}
             >
               <SelectTrigger id="position">

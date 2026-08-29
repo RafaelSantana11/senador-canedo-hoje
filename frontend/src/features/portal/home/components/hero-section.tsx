@@ -31,17 +31,15 @@ export function HeroSection() {
       {/* Main hero */}
       <Link
         href={`/noticia/${hero.slug}`}
-        className="group relative col-span-1 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border transition-shadow hover:shadow-xl lg:col-span-2"
+        className="group relative col-span-1 aspect-[16/9] overflow-hidden rounded-2xl shadow-sm ring-1 ring-border transition-shadow hover:shadow-xl lg:col-span-2 lg:aspect-auto lg:min-h-[430px]"
       >
-        <div className="relative w-full overflow-hidden">
-          <img
-            src={assetPath(hero.cover?.path || "/placeholder.svg")}
-            alt=""
-            className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-primary/20 via-primary/10 to-transparent" />
-        </div>
-        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
+        <img
+          src={assetPath(hero.cover?.path || "/placeholder.svg")}
+          alt=""
+          className="absolute inset-0 size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
+        />
+        <div className="absolute inset-0 bg-linear-to-t from-primary/20 via-primary/10 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-5 pt-24 sm:p-8 sm:pt-32">
           <CategoryBadge
             category={hero.category.name}
             urgent={readUrgent(hero.config)}

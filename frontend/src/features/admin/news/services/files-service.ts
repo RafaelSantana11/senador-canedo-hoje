@@ -11,3 +11,8 @@ export async function uploadCover(file: File): Promise<NewsCover> {
   const { data } = await api.post<UploadResponse>("files/upload", formData)
   return data.file
 }
+
+export async function uploadContentImage(file: File): Promise<string> {
+  const cover = await uploadCover(file)
+  return cover.path
+}

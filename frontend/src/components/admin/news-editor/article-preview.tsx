@@ -1,8 +1,9 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
+import { Clock } from "lucide-react"
+import { CategoryBadge } from "@/features/portal/home/components/category-badge"
 import { assetPath } from "@/lib/utils"
-import { renderMarkdown } from "./markdown-utils"
+import { generateExcerpt } from "./markdown-utils"
 
 interface ArticlePreviewProps {
   title: string
@@ -15,58 +16,47 @@ interface ArticlePreviewProps {
 }
 
 export function ArticlePreview(props: ArticlePreviewProps) {
-  const { title, category, tags, author, image, urgent, content } = props
+  const { title, category, image, urgent, content } = props
+  const summary = generateExcerpt(content)
 
   return (
-    <article className="overflow-hidden rounded-lg border border-border bg-card">
-      {image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={assetPath(image)}
-          alt=""
-          className="h-56 w-full object-cover"
-          onError={(e) => {
-            ;(e.currentTarget as HTMLImageElement).style.display = "none"
-          }}
-        />
-      ) : (
-        <div className="flex h-56 w-full items-center justify-center bg-muted text-xs text-muted-foreground">
-          Imagem de capa
-        </div>
-      )}
-      <div className="p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{category}</Badge>
-          {tags?.map((t) => (
-            <span
-              key={t.id}
-              className="inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-medium border"
-              style={{
-                backgroundColor: `${t.color || "#6366f1"}15`,
-                color: t.color || "inherit",
-                borderColor: `${t.color || "#6366f1"}40`,
-              }}
-            >
-              #{t.name}
-            </span>
-          ))}
-          {urgent && (
-            <span className="text-xs font-semibold tracking-wide text-destructive uppercase">
-              Urgente
-            </span>
-          )}
-        </div>
-        <h3 className="mt-3 text-2xl leading-tight font-semibold text-foreground">
-          {title || "Título da matéria"}
-        </h3>
-        {author && (
-          <p className="mt-2 text-xs text-muted-foreground">Por {author}</p>
+    <div className="group flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border transition-all hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="relative aspect-[16/10] overflow-hidden">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={assetPath(image)}
+            alt=""
+            className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
+            onError={(e) => {
+              ;(e.currentTarget as HTMLImageElement).style.display = "none"
+            }}
+          />
+        ) : (
+          <div className="flex size-full items-center justify-center bg-muted text-xs text-muted-foreground">
+            Imagem de capa
+          </div>
         )}
-        <div
-          className="prose-basic mt-4 text-sm leading-relaxed text-foreground"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+        <CategoryBadge
+          category={category}
+          urgent={urgent}
+          className="absolute top-3 left-3 shadow-sm"
         />
       </div>
-    </article>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="font-serif text-lg leading-snug font-bold text-balance text-foreground transition-colors group-hover:text-secondary">
+          {title || "Título da matéria"}
+        </h3>
+        {summary && (
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+            {summary}
+          </p>
+        )}
+        <div className="mt-auto flex items-center gap-1.5 pt-4 text-xs font-medium text-muted-foreground">
+          <Clock className="size-3.5" />
+          <span>há poucos instantes</span>
+        </div>
+      </div>
+    </div>
   )
 }

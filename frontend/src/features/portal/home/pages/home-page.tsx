@@ -11,10 +11,15 @@ import { usePortalCategories } from "../hooks/use-categories"
 import { CategoryProvider } from "../contexts/category-context"
 
 export default function HomePage() {
-  const { isLoading: newsLoading } = usePortalNews()
+  const { isLoading: newsLoading, data: newsData } = usePortalNews()
   const { isLoading: categoriesLoading } = usePortalCategories()
 
   const isLoading = newsLoading || categoriesLoading
+
+  // Banner no meio do conteúdo só aparece com acervo razoavelmente cheio.
+  const MIN_NEWS_FOR_MIDDLE_BANNER = 8
+  const showMiddleBanner =
+    (newsData?.data.length ?? 0) >= MIN_NEWS_FOR_MIDDLE_BANNER
 
   if (isLoading) {
     return <HomePageSkeleton />
@@ -32,7 +37,7 @@ export default function HomePage() {
 
           <div className="mt-12 grid gap-10 lg:grid-cols-3">
             <div className="flex flex-col gap-12 lg:col-span-2">
-              <FeaturedGrid />
+              <FeaturedGrid showMiddleBanner={showMiddleBanner} />
               <AdBanner size="leaderboard" />
             </div>
 

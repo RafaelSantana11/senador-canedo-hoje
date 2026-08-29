@@ -79,7 +79,7 @@ interface FormatterToolbarProps {
   onOl: () => void
   onLink: () => void
   onImage: () => void
-  onUploadImage: (dataUrl: string) => void
+  onUploadImage: (file: File) => void
   onCode: () => void
   onHr: () => void
   onAlignLeft: () => void
@@ -321,14 +321,7 @@ export function FormatterToolbar(props: FormatterToolbarProps) {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const result = event.target?.result as string
-      if (result) {
-        props.onUploadImage(result)
-      }
-    }
-    reader.readAsDataURL(file)
+    props.onUploadImage(file)
     // reset input
     if (fileInputRef.current) fileInputRef.current.value = ""
   }

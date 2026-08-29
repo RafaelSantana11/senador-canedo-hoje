@@ -45,12 +45,15 @@ function TooltipContent({
 }) {
   return (
     <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Positioner sideOffset={sideOffset}>
+      <TooltipPrimitive.Positioner
+        sideOffset={sideOffset}
+        className="z-50"
+      >
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "tooltip-popup",
-            "z-50 max-w-[280px] rounded-lg bg-foreground px-2.5 py-1.5 text-xs leading-snug text-background shadow-lg",
+            "tooltip-popup relative",
+            "max-w-[280px] rounded-lg bg-foreground px-2.5 py-1.5 text-xs leading-snug text-background shadow-lg",
             "animate-in fade-in-0 zoom-in-95",
             className
           )}

@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import {
   ArrowUpRight,
   FileText,
@@ -12,6 +11,7 @@ import {
 import { PageHeader } from "@/components/admin/admin-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { assetPath } from "@/lib/utils"
 import { useNews } from "@/features/admin/news/hooks/use-news"
 import { useBanners } from "@/features/admin/ads/hooks/use-banners"
 
@@ -98,7 +98,11 @@ export default function AdminDashboardPage() {
             {recent.map((a) => (
               <div key={a.id} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
                 <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                  <Image src={a.cover?.path || "/placeholder.svg"} alt="" fill className="object-cover" sizes="64px" />
+                  <img
+                    src={assetPath(a.cover?.path || "/placeholder.svg")}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{a.title}</p>
@@ -134,7 +138,11 @@ export default function AdminDashboardPage() {
               .map((b) => (
                 <div key={b.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                   <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-muted">
-                    <Image src={b.items[0]?.file.path || "/placeholder.svg"} alt="" fill className="object-cover" sizes="56px" />
+                    <img
+                      src={assetPath(b.items[0]?.file.path || "/placeholder.svg")}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{b.title}</p>

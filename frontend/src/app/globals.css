@@ -307,11 +307,11 @@
 /* ─── Formatter toolbar button group label ───────────────────────── */
 
 .toolbar-group-label {
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-muted-foreground);
-  opacity: 0.5;
+  opacity: 1;
   line-height: 1;
   padding-bottom: 1px;
   user-select: none;

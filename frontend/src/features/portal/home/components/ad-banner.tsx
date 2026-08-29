@@ -5,20 +5,24 @@ import { cn } from "@/lib/utils"
 import { useServeBanners } from "../hooks/use-serve-banners"
 import type { BannerPosition, PublicBannerItem } from "../types/banner"
 
-const POSITION_BY_SIZE: Record<"leaderboard" | "box", BannerPosition> = {
+const POSITION_BY_SIZE: Record<
+  "leaderboard" | "box" | "middle",
+  BannerPosition
+> = {
   leaderboard: "top",
   box: "aside",
+  middle: "middle",
 }
 
 export function AdBanner({
   size = "leaderboard",
   className,
 }: {
-  size?: "leaderboard" | "box"
+  size?: "leaderboard" | "box" | "middle"
   className?: string
 }) {
   const position = POSITION_BY_SIZE[size]
-  const { data } = useServeBanners([position])
+  const { data } = useServeBanners()
 
   // Posição vazia não é erro: volta ao espaço reservado.
   const items = data?.[position] ?? []
@@ -27,7 +31,11 @@ export function AdBanner({
     <div
       className={cn(
         "overflow-hidden rounded-xl",
-        size === "leaderboard" ? "h-24 w-full sm:h-28" : "aspect-square w-full",
+        size === "box"
+          ? "aspect-square w-full"
+          : size === "middle"
+            ? "h-40 w-full sm:h-44"
+            : "h-24 w-full sm:h-28",
         className
       )}
       role="complementary"
