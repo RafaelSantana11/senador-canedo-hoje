@@ -4,24 +4,13 @@ import { Fragment } from "react"
 import { Clock, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { AdBanner } from "./ad-banner"
-import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
-import { selectHomeSections } from "../utils/showcase"
-import { filterByQuery } from "../utils/filter-by-query"
+import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent, type PublicNews } from "../types/news"
-import { useSelectedCategory } from "../contexts/category-context"
-import { useSearch } from "../contexts/search-context"
 
 export function NewsSidebar() {
-  const { selectedSlug } = useSelectedCategory()
-  const { searchQuery } = useSearch()
-  const { data } = usePortalNews({
-    ...SHOWCASE_PARAMS,
-    ...(selectedSlug ? { category: selectedSlug } : {}),
-  })
-  const { mostRead, latest, sawThis } = selectHomeSections(
-    filterByQuery(data?.data ?? [], searchQuery),
-  )
+  const { sections } = useNewsFeed()
+  const { mostRead, latest, sawThis } = sections
 
   // "Viu isso?": blocos divididos de forma o mais igual possível, com até 5
   // matérias por bloco. Ex.: 8 → 2x4, 12 → 3x4, 25 → 5x5. Entre os blocos entra

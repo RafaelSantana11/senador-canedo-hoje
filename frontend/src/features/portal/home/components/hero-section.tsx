@@ -3,23 +3,13 @@
 import { Clock } from "lucide-react"
 import Link from "next/link"
 import { CategoryBadge } from "./category-badge"
-import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
-import { selectHomeSections } from "../utils/showcase"
-import { filterByQuery } from "../utils/filter-by-query"
+import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent } from "../types/news"
 import { assetPath } from "@/lib/utils"
-import { useSelectedCategory } from "../contexts/category-context"
-import { useSearch } from "../contexts/search-context"
 
 export function HeroSection() {
-  const { selectedSlug } = useSelectedCategory()
-  const { searchQuery } = useSearch()
-  const { data } = usePortalNews({
-    ...SHOWCASE_PARAMS,
-    ...(selectedSlug ? { category: selectedSlug } : {}),
-  })
-  const sections = selectHomeSections(filterByQuery(data?.data ?? [], searchQuery))
+  const { sections } = useNewsFeed()
 
   // Enquanto a listagem pública carrega (ou vazia), não há o que mostrar.
   if (!sections.hero) return null

@@ -3,22 +3,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 function HeaderSkeleton() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
-      <div className="bg-primary">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5">
-          <Skeleton className="h-3 w-48 bg-primary-foreground/20" />
-          <div className="hidden items-center gap-4 sm:flex">
-            <Skeleton className="h-3 w-10 bg-primary-foreground/20" />
-            <Skeleton className="h-3 w-10 bg-primary-foreground/20" />
-          </div>
-        </div>
-      </div>
+     
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
         <Skeleton className="h-7 w-56" />
         <Skeleton className="hidden h-10 max-w-md flex-1 rounded-full md:block" />
         <Skeleton className="size-10 rounded-lg md:hidden" />
       </div>
-      <div className="hidden border-t border-border lg:block">
-        <div className="mx-auto flex max-w-7xl items-center gap-1 px-4">
+      <div className="hidden border-t border-border lg:block py-2">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-3 w-16 rounded-full py-3" />
           ))}

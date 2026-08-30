@@ -13,9 +13,19 @@ import * as PARAMS from "@/lib/portal-params"
 
 type ParamKey = keyof typeof PARAMS
 
+type ParamValue = number | string
+
 const PARAM_META: Record<
   ParamKey,
-  { label: string; description: string; group: string; min?: number; max?: number }
+  {
+    label: string
+    description: string
+    group: string
+    type?: "number" | "text"
+    min?: number
+    max?: number
+    placeholder?: string
+  }
 > = {
   MIN_NEWS_FOR_MIDDLE_BANNER: {
     label: "Mínimo notícias para banner central",
@@ -66,11 +76,53 @@ const PARAM_META: Record<
     min: 1,
     max: 6,
   },
+  PORTAL_NEWS_FETCH_LIMIT: {
+    label: "Notícias por requisição (portal)",
+    description: "Limite de notícias carregadas em uma requisição no portal.",
+    group: "API — Limites de paginação",
+    min: 1,
+    max: 200,
+  },
+  CATEGORIES_FETCH_LIMIT: {
+    label: "Categorias por requisição",
+    description: "Limite de categorias carregadas por requisição.",
+    group: "API — Limites de paginação",
+    min: 1,
+    max: 200,
+  },
+  AUTHORS_FETCH_LIMIT: {
+    label: "Autores por requisição",
+    description: "Limite de autores carregados por requisição.",
+    group: "API — Limites de paginação",
+    min: 1,
+    max: 200,
+  },
+  TAGS_FETCH_LIMIT: {
+    label: "Tags por requisição",
+    description: "Limite de tags carregadas por requisição.",
+    group: "API — Limites de paginação",
+    min: 1,
+    max: 200,
+  },
+  BANNERS_FETCH_LIMIT: {
+    label: "Banners por requisição",
+    description: "Limite de banners carregados por requisição.",
+    group: "API — Limites de paginação",
+    min: 1,
+    max: 200,
+  },
+  WHATSAPP_NUMBER: {
+    label: "Número de WhatsApp",
+    description: "Número usado nos links \"Anuncie conosco\" e \"Entre em contato\" do rodapé. Informe no formato internacional, apenas dígitos (ex.: 5562912345678).",
+    group: "Footer / Contato",
+    type: "text",
+    placeholder: "5562912345678",
+  },
 }
 
 const GROUPS = Array.from(new Set(Object.values(PARAM_META).map((m) => m.group)))
 
-function groupEntries(values: Record<ParamKey, number>) {
+function groupEntries(values: Record<ParamKey, ParamValue>) {
   return GROUPS.map((group) => ({
     group,
     params: (Object.keys(PARAM_META) as ParamKey[]).filter(
@@ -80,13 +132,18 @@ function groupEntries(values: Record<ParamKey, number>) {
 }
 
 export default function ParamsPage() {
-  const defaults = PARAMS as Record<ParamKey, number>
-  const [values, setValues] = useState<Record<ParamKey, number>>({ ...defaults })
-  const [saved, setSaved] = useState<Record<ParamKey, number>>({ ...defaults })
+  const defaults = PARAMS as Record<ParamKey, ParamValue>
+  const [values, setValues] = useState<Record<ParamKey, ParamValue>>({ ...defaults })
+  const [saved, setSaved] = useState<Record<ParamKey, ParamValue>>({ ...defaults })
 
   const isDirty = (Object.keys(values) as ParamKey[]).some((k) => values[k] !== saved[k])
 
   function handleChange(key: ParamKey, raw: string) {
+    const meta = PARAM_META[key]
+    if (meta.type === "text") {
+      setValues((prev) => ({ ...prev, [key]: raw }))
+      return
+    }
     const parsed = parseInt(raw, 10)
     if (isNaN(parsed)) return
     setValues((prev) => ({ ...prev, [key]: parsed }))
@@ -170,9 +227,10 @@ export default function ParamsPage() {
                     </div>
                     <Input
                       id={`param-${key}`}
-                      type="number"
-                      min={meta.min}
-                      max={meta.max}
+                      type={meta.type === "text" ? "text" : "number"}
+                      min={meta.type === "text" ? undefined : meta.min}
+                      max={meta.type === "text" ? undefined : meta.max}
+                      placeholder={meta.placeholder}
                       value={values[key]}
                       onChange={(e) => handleChange(key, e.target.value)}
                       className="font-mono h-9"
@@ -182,7 +240,7 @@ export default function ParamsPage() {
                     </p>
                     <p className="text-[10px] text-muted-foreground/60 font-mono">
                       padrão: {defaults[key]}
-                      {meta.min !== undefined && meta.max !== undefined && (
+                      {meta.type !== "text" && meta.min !== undefined && meta.max !== undefined && (
                         <> · range: {meta.min}–{meta.max}</>
                       )}
                     </p>

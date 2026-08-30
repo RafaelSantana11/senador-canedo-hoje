@@ -4,15 +4,12 @@ import { Fragment } from "react"
 import { Clock } from "lucide-react"
 import Link from "next/link"
 import { CategoryBadge } from "./category-badge"
-import { usePortalNews, SHOWCASE_PARAMS } from "../hooks/use-news"
-import { selectHomeSections } from "../utils/showcase"
-import { filterByQuery } from "../utils/filter-by-query"
+import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent, type PublicNews } from "../types/news"
 import { assetPath } from "@/lib/utils"
-import { useSelectedCategory } from "../contexts/category-context"
-import { useSearch } from "../contexts/search-context"
 import { AdBanner } from "./ad-banner"
+import { InfiniteNewsFooter } from "./infinite-news-footer"
 import { BANNER_INTERVAL } from "@/lib/portal-params"
 
 function FeaturedCard({ article }: { article: PublicNews }) {
@@ -66,15 +63,8 @@ export function FeaturedGrid({
 }: {
   showMiddleBanner?: boolean
 }) {
-  const { selectedSlug } = useSelectedCategory()
-  const { searchQuery } = useSearch()
-  const { data } = usePortalNews({
-    ...SHOWCASE_PARAMS,
-    ...(selectedSlug ? { category: selectedSlug } : {}),
-  })
-  const { featured } = selectHomeSections(
-    filterByQuery(data?.data ?? [], searchQuery),
-  )
+  const { sections } = useNewsFeed()
+  const { featured } = sections
 
   if (featured.length === 0) return null
 
@@ -92,6 +82,9 @@ export function FeaturedGrid({
           {showMiddleBanner && i < blocks.length - 1 && <AdBanner size="middle" />}
         </Fragment>
       ))}
+
+      {/* Fim da grade: sentinela do infinite scroll + estados de loading/erro/fim. */}
+      <InfiniteNewsFooter />
     </div>
   )
 }

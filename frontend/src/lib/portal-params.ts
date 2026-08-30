@@ -53,3 +53,12 @@ export const TAGS_FETCH_LIMIT = 100
 
 /** Banners carregados por requisição */
 export const BANNERS_FETCH_LIMIT = 50
+
+// ─────────────────────────────────────────────────────────────
+//  Footer / Contato
+// ─────────────────────────────────────────────────────────────
+
+/** Número de WhatsApp (formato internacional, apenas dígitos) usado nos
+ *  links "Anuncie conosco" e "Entre em contato" do rodapé do portal.
+ *  Ex.: 5562912345678 (55 + DDD 62 + número) */
+export const WHATSAPP_NUMBER = "556200000000"

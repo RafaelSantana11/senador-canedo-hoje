@@ -6,26 +6,19 @@ import { FeaturedGrid } from "../components/featured-grid"
 import { NewsSidebar } from "../components/news-sidebar"
 import { AdBanner } from "../components/ad-banner"
 import { HomePageSkeleton } from "../components/home-page-skeleton"
-import { usePortalNews } from "../hooks/use-news"
 import { usePortalCategories } from "../hooks/use-categories"
 import { useServeBanners } from "../hooks/use-serve-banners"
 import { Search } from "lucide-react"
 import { SearchProvider, useSearch } from "../contexts/search-context"
-import { filterByQuery } from "../utils/filter-by-query"
-import { CategoryProvider, useSelectedCategory } from "../contexts/category-context"
-import { PublicNews } from "../types/news"
+import { CategoryProvider } from "../contexts/category-context"
+import { NewsFeedProvider, useNewsFeed } from "../contexts/news-feed-context"
 import { MIN_NEWS_FOR_MIDDLE_BANNER } from "@/lib/portal-params"
 
-function MainSection({ showMiddleBanner, allNews }: { showMiddleBanner: boolean; allNews: PublicNews[] }) {
+function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
   const { searchQuery, setSearchQuery } = useSearch()
-  const { selectedSlug } = useSelectedCategory()
+  const { allNews } = useNewsFeed()
 
-  const filteredNews = filterByQuery(
-    selectedSlug ? allNews.filter((item) => item.category?.slug === selectedSlug) : allNews,
-    searchQuery
-  )
-
-  const hasResults = filteredNews.length > 0 || !searchQuery.trim()
+  const hasResults = allNews.length > 0 || !searchQuery.trim()
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
@@ -68,13 +61,12 @@ function MainSection({ showMiddleBanner, allNews }: { showMiddleBanner: boolean;
   )
 }
 
-export default function HomePage() {
-  const { isLoading: newsLoading, data: newsData } = usePortalNews()
+function HomePageContent() {
   const { isLoading: categoriesLoading } = usePortalCategories()
   const { isLoading: bannersLoading } = useServeBanners()
+  const { isLoading: newsLoading, allNews } = useNewsFeed()
 
   const isLoading = newsLoading || categoriesLoading || bannersLoading
-  const allNews = newsData?.data ?? []
 
   // Banner no meio do conteúdo só aparece com acervo razoavelmente cheio.
   const showMiddleBanner = allNews.length >= MIN_NEWS_FOR_MIDDLE_BANNER
@@ -84,12 +76,20 @@ export default function HomePage() {
   }
 
   return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      <MainSection showMiddleBanner={showMiddleBanner} />
+    </div>
+  )
+}
+
+export default function HomePage() {
+  return (
     <SearchProvider>
       <CategoryProvider>
-        <div className="min-h-screen">
-          <SiteHeader />
-          <MainSection showMiddleBanner={showMiddleBanner} allNews={allNews} />
-        </div>
+        <NewsFeedProvider>
+          <HomePageContent />
+        </NewsFeedProvider>
       </CategoryProvider>
     </SearchProvider>
   )
