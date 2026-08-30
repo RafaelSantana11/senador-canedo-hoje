@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "@/components/providers"
+import { AnalyticsProvider } from "@/components/analytics/analytics-provider"
 import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
 
@@ -64,6 +65,8 @@ export default function RootLayout({
         <Providers>
           <ThemeProvider>{children}</ThemeProvider>
         </Providers>
+        {/* GA4 + banner de consentimento (LGPD). Só carrega em produção. */}
+        <AnalyticsProvider />
       </body>
     </html>
   )

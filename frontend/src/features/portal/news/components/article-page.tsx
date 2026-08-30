@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment } from "react"
+import { Fragment, useEffect, useRef } from "react"
 import {
   AlertCircle,
   Calendar,
@@ -9,6 +9,12 @@ import {
   Share2,
   User,
 } from "lucide-react"
+import {
+  trackOutboundClick,
+  trackReadingProgress,
+  trackShare,
+  viewArticle,
+} from "@/lib/gtag"
 import Link from "next/link"
 import {
   renderMarkdown,
@@ -75,6 +81,65 @@ export function ArticlePage({
 
   const blocks = splitMarkdownBlocks(content)
   const adPositions = inContentAdPositions(blocks.length)
+
+  // -----------------------------------------------------------------
+  // Eventos de Analytics (GA4) da matéria.
+  // As funções são no-op seguras quando o GA está desativado ou o
+  // usuário não consentiu, então podem ficar ativas. Remova os blocos
+  // que não fizerem sentido editorialmente.
+  // -----------------------------------------------------------------
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const reportedDepths = useRef<Set<number>>(new Set())
+
+  // view_article — ao abrir a matéria.
+  useEffect(() => {
+    if (preview) return
+    viewArticle({ title, category, author })
+  }, [preview, title, category, author])
+
+  // scroll_depth — 25/50/75/100% de leitura.
+  useEffect(() => {
+    if (preview || !bodyRef.current) return
+    const thresholds: [25, 50, 75, 100] = [25, 50, 75, 100]
+    const onScroll = () => {
+      const el = bodyRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const total = rect.height
+      const visible = window.innerHeight - rect.top
+      const percent = Math.min(100, Math.round((visible / total) * 100))
+      for (const t of thresholds) {
+        if (percent >= t && !reportedDepths.current.has(t)) {
+          reportedDepths.current.add(t)
+          trackReadingProgress(t, { title, category })
+        }
+      }
+    }
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [preview, title, category])
+
+  // outbound_click — cliques em links externos dentro do corpo da matéria.
+  const handleBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest("a")
+    if (!anchor) return
+    const href = anchor.getAttribute("href") ?? ""
+    if (/^https?:\/\//.test(href) && new URL(href).hostname !== location.hostname) {
+      trackOutboundClick(href, { content_title: title })
+    }
+  }
+
+  const handleShareClick = () => {
+    // share — o usuário clicou em "Compartilhar".
+    if (navigator.share) {
+      trackShare({ title, category, method: "navigator" })
+      void navigator.share({ title, url: location.href })
+    } else if (navigator.clipboard) {
+      trackShare({ title, category, method: "copy" })
+      void navigator.clipboard.writeText(location.href)
+    }
+  }
 
   return (
     <div className={preview ? "bg-background" : "min-h-screen bg-background"}>
@@ -179,6 +244,7 @@ export function ArticlePage({
           <button
             type="button"
             disabled={preview}
+            onClick={handleShareClick}
             className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60"
           >
             <Share2 className="h-3.5 w-3.5" />
@@ -202,7 +268,11 @@ export function ArticlePage({
         )}
 
         {/* Body */}
-        <div className="mt-8 text-base leading-relaxed text-foreground md:text-lg">
+        <div
+          ref={bodyRef}
+          onClick={handleBodyClick}
+          className="mt-8 text-base leading-relaxed text-foreground md:text-lg"
+        >
           {blocks.length === 0 && (
             <p className="text-muted-foreground">
               O conteúdo da matéria aparecerá aqui.
