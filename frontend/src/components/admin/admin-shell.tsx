@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
 import { Button } from "@/components/ui/button"
 import {
   Avatar,
@@ -49,6 +50,9 @@ const settingsSubNav = [
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const siteName = useSiteIdentityStore((s) => s.name)
+  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
+  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
   const user = useAuthStore((state) => state.user)
   const refreshToken = useAuthStore((state) => state.refreshToken)
   const [ready, setReady] = useState(false)
@@ -139,12 +143,21 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           collapsed ? "justify-center" : "gap-3 px-6",
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
-          <Newspaper className="h-5 w-5" />
-        </div>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={logoAlt}
+            className="h-10 w-10 shrink-0 rounded-xl object-contain ring-1 ring-primary-foreground/20"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
+            <Newspaper className="h-5 w-5" />
+          </div>
+        )}
         {!collapsed && (
           <div className="leading-tight">
-            <p className="font-serif text-lg font-bold">Portal Notícias</p>
+            <p className="font-serif text-lg font-bold">{siteName}</p>
             <p className="text-xs text-accent">Painel Editorial</p>
           </div>
         )}
@@ -275,6 +288,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   )
+  
 
   return (
     <AdminStoreProvider>
@@ -290,8 +304,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-border bg-primary px-4 py-3 text-primary-foreground lg:hidden">
           <div className="flex items-center gap-2">
-            <Newspaper className="h-5 w-5" />
-            <span className="font-serif text-base font-bold">Painel Editorial</span>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={logoAlt}
+                className="h-6 w-6 rounded-md object-contain"
+              />
+            ) : (
+              <Newspaper className="h-5 w-5" />
+            )}
+            <span className="font-serif text-base font-bold">{siteName}</span>
           </div>
           <button onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <Menu className="h-6 w-6" />

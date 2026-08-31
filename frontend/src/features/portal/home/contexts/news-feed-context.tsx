@@ -41,7 +41,7 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
     const seen = new Set<string>()
     const flat: PublicNews[] = []
     for (const page of infinite.data?.pages ?? []) {
-      for (const item of page.data ?? []) {
+      for (const item of page?.data ?? []) {
         if (seen.has(item.id)) continue
         seen.add(item.id)
         flat.push(item)

@@ -8,11 +8,12 @@ import { AdBanner } from "../components/ad-banner"
 import { HomePageSkeleton } from "../components/home-page-skeleton"
 import { usePortalCategories } from "../hooks/use-categories"
 import { useServeBanners } from "../hooks/use-serve-banners"
-import { Search } from "lucide-react"
+import { Search, WifiOff, RefreshCw } from "lucide-react"
 import { SearchProvider, useSearch } from "../contexts/search-context"
 import { CategoryProvider } from "../contexts/category-context"
 import { NewsFeedProvider, useNewsFeed } from "../contexts/news-feed-context"
 import { MIN_NEWS_FOR_MIDDLE_BANNER } from "@/lib/portal-params"
+import { useQueryClient } from "@tanstack/react-query"
 
 function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
   const { searchQuery, setSearchQuery } = useSearch()
@@ -62,17 +63,46 @@ function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
 }
 
 function HomePageContent() {
-  const { isLoading: categoriesLoading } = usePortalCategories()
-  const { isLoading: bannersLoading } = useServeBanners()
-  const { isLoading: newsLoading, allNews } = useNewsFeed()
+  const queryClient = useQueryClient()
+  const { isLoading: categoriesLoading, isError: categoriesError } = usePortalCategories()
+  const { isLoading: bannersLoading, isError: bannersError } = useServeBanners()
+  const { isLoading: newsLoading, allNews, isError: newsError } = useNewsFeed()
 
   const isLoading = newsLoading || categoriesLoading || bannersLoading
+  const hasError = (categoriesError || bannersError || newsError)
 
   // Banner no meio do conteúdo só aparece com acervo razoavelmente cheio.
   const showMiddleBanner = allNews.length >= MIN_NEWS_FOR_MIDDLE_BANNER
 
-  if (isLoading) {
+  if (isLoading && !hasError) {
     return <HomePageSkeleton />
+  }
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <main className="mx-auto max-w-7xl px-4 py-8">
+          <div className="my-12 rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
+            <WifiOff className="mx-auto size-12 text-muted-foreground/50" />
+            <h3 className="mt-4 font-serif text-xl font-bold text-foreground">
+              Conexão indisponível
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.
+            </p>
+            <button
+              type="button"
+              onClick={() => queryClient.invalidateQueries()}
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <RefreshCw className="size-4" />
+              Tentar novamente
+            </button>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (

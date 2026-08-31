@@ -28,6 +28,6 @@ export function infiniteNewsOptions(params: PublicNewsParams = {}) {
       lastPage: PublicNewsList,
       _allPages: PublicNewsList[],
       lastPageParam: number,
-    ) => (lastPage.hasNextPage ? lastPageParam + 1 : undefined),
+    ) => (lastPage?.hasNextPage ? lastPageParam + 1 : undefined),
   }
 }

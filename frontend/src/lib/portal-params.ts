@@ -55,6 +55,23 @@ export const TAGS_FETCH_LIMIT = 100
 export const BANNERS_FETCH_LIMIT = 50
 
 // ─────────────────────────────────────────────────────────────
+//  Identidade Visual — Logo & Nome do Site
+// ─────────────────────────────────────────────────────────────
+
+/** Nome do site exibido no header, footer e painel administrativo */
+export const SITE_NAME = "Senador Canedo Hoje"
+
+/** URL da imagem do logo (caminho relativo como /logo.png ou URL absoluta).
+ *  Quando vazio, apenas o texto do nome do site é exibido. */
+export const LOGO_URL = ""
+
+/** Texto alternativo do logo (acessibilidade) */
+export const LOGO_ALT = "Senador Canedo Hoje"
+
+/** Exibir o nome do site ao lado do logo no header da home */
+export const SHOW_NAME_WITH_LOGO = false
+
+// ─────────────────────────────────────────────────────────────
 //  Footer / Contato
 // ─────────────────────────────────────────────────────────────
 

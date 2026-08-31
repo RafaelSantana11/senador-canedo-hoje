@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { assetPath } from "@/lib/utils"
+import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useLogin } from "../hooks/use-login"
 import type { LoginPayload } from "../types/auth"
@@ -29,6 +30,9 @@ const FIELD_MESSAGES: Record<string, string> = {
 
 export default function LoginPage() {
   const router = useRouter()
+  const siteName = useSiteIdentityStore((s) => s.name)
+  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
+  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
   const { mutate, isPending, error } = useLogin()
   const token = useAuthStore((state) => state.token)
   const refreshToken = useAuthStore((state) => state.refreshToken)
@@ -87,11 +91,20 @@ export default function LoginPage() {
           aria-hidden
         />
         <div className="relative flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
-            <Newspaper className="h-6 w-6" />
-          </div>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={logoAlt}
+              className="h-11 w-11 rounded-xl object-contain ring-1 ring-primary-foreground/20"
+            />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
+              <Newspaper className="h-6 w-6" />
+            </div>
+          )}
           <div className="leading-tight">
-            <p className="font-serif text-xl font-bold">Portal Notícias</p>
+            <p className="font-serif text-xl font-bold">{siteName}</p>
             <p className="text-xs text-accent">Painel Editorial</p>
           </div>
         </div>
@@ -105,7 +118,7 @@ export default function LoginPage() {
           </p>
         </div>
         <p className="relative text-xs text-primary-foreground/50">
-          &copy; {new Date().getFullYear()} Portal Notícias. Todos os direitos reservados.
+          &copy; {new Date().getFullYear()} {siteName}. Todos os direitos reservados.
         </p>
       </section>
 

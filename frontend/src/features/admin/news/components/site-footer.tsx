@@ -1,4 +1,7 @@
+"use client"
+
 import { WHATSAPP_NUMBER } from "@/lib/portal-params"
+import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
 
 const contactLinks = [
   {
@@ -16,12 +19,27 @@ function waLink(message: string) {
 }
 
 export function SiteFooter() {
+  const siteName = useSiteIdentityStore((s) => s.name)
+  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
+  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
+
   return (
     <footer className="border-t border-black/10 bg-primary text-primary-foreground">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row">
-        <p className="font-serif text-lg font-bold tracking-tight">
-          Senador Canedo Hoje
-        </p>
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={logoAlt}
+              className="h-8 w-auto object-contain brightness-0 invert"
+            />
+          ) : (
+            <p className="font-serif text-lg font-bold tracking-tight">
+              {siteName}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-6 text-sm">
           {contactLinks.map((link) => (
             <a

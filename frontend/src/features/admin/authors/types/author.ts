@@ -27,6 +27,7 @@ export type GetAuthorsParams = {
 }
 
 export type UpdateAuthorPayload = {
+  name?: string
   bio?: string
   isColumnist?: boolean
   slug?: string

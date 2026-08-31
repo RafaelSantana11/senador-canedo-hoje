@@ -41,7 +41,10 @@ function settleWithHide<T>(value: T): T {
   return value
 }
 
-publicApi.interceptors.response.use(settleWithHide, settleWithHide)
+publicApi.interceptors.response.use(settleWithHide, (error) => {
+  useLoadingStore.getState().hideLoading()
+  return Promise.reject(error)
+})
 
 // Antecipa a renovação antes de o token expirar, para não perder uma
 // requisição na virada (ver 2.2 do contrato).

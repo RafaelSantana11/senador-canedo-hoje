@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
+import { useForm } from "react-hook-form"
 import type { Author } from "../types/author"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,13 +15,20 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export type AuthorFormValues = {
+  name: string
   bio: string
   isColumnist: boolean
   slug: string
+}
+
+const emptyValues: AuthorFormValues = {
+  name: "",
+  bio: "",
+  isColumnist: false,
+  slug: "",
 }
 
 export function AuthorDialog({
@@ -36,28 +44,34 @@ export function AuthorDialog({
   onSubmit: (values: AuthorFormValues) => void
   isPending?: boolean
 }) {
-  const [bio, setBio] = useState("")
-  const [isColumnist, setIsColumnist] = useState(false)
-  const [slug, setSlug] = useState("")
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<AuthorFormValues>({ defaultValues: emptyValues })
 
   useEffect(() => {
-    if (initial) {
-      setBio(initial.bio ?? "")
-      setIsColumnist(initial.isColumnist)
-      setSlug(initial.slug)
-    } else {
-      setBio("")
-      setIsColumnist(false)
-      setSlug("")
+    if (open) {
+      reset(
+        initial
+          ? {
+              name: initial.name,
+              bio: initial.bio ?? "",
+              isColumnist: initial.isColumnist,
+              slug: initial.slug,
+            }
+          : emptyValues,
+      )
     }
-  }, [initial, open])
+  }, [open, initial, reset])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function handleFormSubmit(values: AuthorFormValues) {
     onSubmit({
-      bio: bio.trim(),
-      isColumnist,
-      slug: slug.trim(),
+      name: values.name.trim(),
+      bio: values.bio.trim(),
+      isColumnist: values.isColumnist,
+      slug: values.slug.trim(),
     })
   }
 
@@ -74,11 +88,11 @@ export function AuthorDialog({
         <DialogHeader>
           <DialogTitle>Editar Autor</DialogTitle>
           <DialogDescription>
-            Edite as informações editoriais do autor: bio, slug e status de colunista.
+            Edite as informações editoriais do autor: nome, bio, slug e status de colunista.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(handleFormSubmit)} noValidate className="space-y-4 py-2">
           {/* Author preview */}
           <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-xl border border-border">
             <Avatar className="h-14 w-14 border border-border">
@@ -94,15 +108,33 @@ export function AuthorDialog({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="author-name">Nome</Label>
+            <Input
+              id="author-name"
+              placeholder="ex: Mariana Costa"
+              aria-invalid={Boolean(errors.name)}
+              {...register("name", {
+                required: "Informe o nome do autor.",
+              })}
+            />
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="author-slug">Slug (URL pública)</Label>
             <Input
               id="author-slug"
               placeholder="ex: mariana-costa"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              pattern="^[a-z0-9]+(-[a-z0-9]+)*$"
-              title="Apenas letras minúsculas, números e hífens"
+              aria-invalid={Boolean(errors.slug)}
+              {...register("slug", {
+                required: "Informe o slug.",
+                pattern: {
+                  value: /^[a-z0-9]+(-[a-z0-9]+)*$/,
+                  message: "Apenas letras minúsculas, números e hífens",
+                },
+              })}
             />
+            {errors.slug && <p className="text-sm text-destructive">{errors.slug.message}</p>}
             <p className="text-[11px] text-muted-foreground">
               ⚠️ Mudar o slug quebra links já publicados do perfil.
             </p>
@@ -114,24 +146,7 @@ export function AuthorDialog({
               id="author-bio"
               rows={4}
               placeholder="Breve resumo da trajetória profissional do autor..."
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="author-columnist" className="text-sm font-medium">
-                Colunista
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Colunistas são exibidos na seção de destaque do portal.
-              </p>
-            </div>
-            <Switch
-              id="author-columnist"
-              checked={isColumnist}
-              onCheckedChange={setIsColumnist}
+              {...register("bio")}
             />
           </div>
 

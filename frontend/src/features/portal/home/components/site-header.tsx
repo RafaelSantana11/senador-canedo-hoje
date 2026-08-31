@@ -8,6 +8,7 @@ import { usePortalCategories } from "../hooks/use-categories"
 import { useSelectedCategory } from "../contexts/category-context"
 import { useSearch } from "../contexts/search-context"
 import { cn } from "@/lib/utils"
+import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
 
 const ALL_NEWS_ITEM = { id: "__all__", name: "Notícias", slug: null }
 
@@ -16,6 +17,10 @@ type SearchFormData = {
 }
 
 export function SiteHeader() {
+  const siteName = useSiteIdentityStore((s) => s.name)
+  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
+  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
+  const showNameWithLogo = useSiteIdentityStore((s) => s.showNameWithLogo)
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const { data } = usePortalCategories()
@@ -76,11 +81,27 @@ export function SiteHeader() {
           <Link
             href="/"
             className="flex items-center gap-2.5"
-            aria-label="Senador Canedo Hoje - Página inicial"
+            aria-label={`${siteName} - Página inicial`}
           >
-            <span className="font-serif text-2xl font-bold tracking-tight text-primary">
-              Senador Canedo Hoje
-            </span>
+            {logoUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={logoUrl}
+                  alt={logoAlt}
+                  className="h-8 w-auto object-contain"
+                />
+                {showNameWithLogo && (
+                  <span className="hidden font-serif text-2xl font-bold tracking-tight text-primary sm:inline">
+                    {siteName}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="font-serif text-2xl font-bold tracking-tight text-primary">
+                {siteName}
+              </span>
+            )}
           </Link>
         </div>
 
