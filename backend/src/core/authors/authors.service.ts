@@ -5,13 +5,19 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
+import { FileType } from 'src/infra/files/domain/file';
+import { FileDto } from 'src/infra/files/dto/file.dto';
+import { FileRepository } from 'src/infra/files/infrastructure/persistence/file.repository';
+
+import { DeepPartial } from '../../utils/types/deep-partial.type';
 import { NullableType } from '../../utils/types/nullable.type';
 import { IPaginationOptions } from '../../utils/types/pagination-options';
 import { slugify } from '../../utils/slug';
 import { RoleEnum } from '../roles/roles.enum';
 import { User } from '../users/domain/user';
+import { UserRepository } from '../users/infrastructure/persistence/user.repository';
 import { Author } from './domain/author';
 import { CreateAuthorDto } from './dto/create-author.dto';
 import { UpdateAuthorDto } from './dto/update-author.dto';
@@ -22,7 +28,14 @@ import {
 
 @Injectable()
 export class AuthorsService {
-  constructor(private readonly authorsRepository: AuthorRepository) {}
+  constructor(
+    private readonly authorsRepository: AuthorRepository,
+    // Repositórios, e não `UsersService`/`FilesService`: os dois services
+    // fechariam ciclo de módulo com este — ver a nota em `authors.module.ts`.
+    private readonly usersRepository: UserRepository,
+    private readonly filesRepository: FileRepository,
+    private readonly dataSource: DataSource,
+  ) {}
 
   /**
    * Cria o perfil editorial 1:1 do usuário. Chamado por `UsersService.create()`
@@ -175,9 +188,55 @@ export class AuthorsService {
       payload.slug = updateAuthorDto.slug;
     }
 
-    const updated = await this.authorsRepository.update(id, payload);
+    // `name` e `photo` não são colunas de `author`: moram no `User` dono do
+    // perfil, que é a fonte única de verdade (ver `domain/author.ts`). Como
+    // `Author` é 1:1 com `User`, "dono do autor" é "dono do usuário" — escrever
+    // aqui não abre permissão que o `PATCH /auth/me` já não desse.
+    const userPayload: DeepPartial<User> = {};
 
-    if (!updated) {
+    if (updateAuthorDto.name !== undefined) {
+      userPayload.name = updateAuthorDto.name;
+    }
+
+    if (updateAuthorDto.photo !== undefined) {
+      userPayload.photo = await this.resolvePhoto(updateAuthorDto.photo);
+    }
+
+    const touchesUser = Object.keys(userPayload).length > 0;
+
+    // As duas gravações vão na mesma transação: nome novo com bio antiga (ou o
+    // contrário) deixaria o perfil incoerente.
+    await this.dataSource.transaction(async (entityManager) => {
+      if (touchesUser) {
+        await this.usersRepository.update(
+          author.userId,
+          userPayload,
+          entityManager,
+        );
+      }
+
+      const updated = await this.authorsRepository.update(
+        id,
+        payload,
+        entityManager,
+      );
+
+      if (!updated) {
+        throw new NotFoundException({
+          status: HttpStatus.NOT_FOUND,
+          errors: {
+            id: 'authorNotFound',
+          },
+        });
+      }
+    });
+
+    // Relê depois do commit em vez de montar a resposta a partir do payload: é
+    // o que garante `name`/`photo` novos, que chegam achatados pelo mapper a
+    // partir da relação eager com `User`.
+    const reloaded = await this.authorsRepository.findById(id);
+
+    if (!reloaded) {
       throw new NotFoundException({
         status: HttpStatus.NOT_FOUND,
         errors: {
@@ -186,7 +245,32 @@ export class AuthorsService {
       });
     }
 
-    return updated;
+    return reloaded;
+  }
+
+  /**
+   * `undefined` não mexe na foto; `null` remove. Mesmo código de erro que
+   * `UsersService` devolve para o mesmo dado, porque é o mesmo campo.
+   */
+  private async resolvePhoto(
+    photo: FileDto | null,
+  ): Promise<NullableType<FileType>> {
+    if (!photo?.id) {
+      return null;
+    }
+
+    const file = await this.filesRepository.findById(photo.id);
+
+    if (!file) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          photo: 'imageNotExists',
+        },
+      });
+    }
+
+    return file;
   }
 
   /** Acompanha o soft delete do `User` — ver `UsersService.remove()`. */

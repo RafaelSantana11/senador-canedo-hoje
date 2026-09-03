@@ -16,9 +16,11 @@ export type UpdateAuthorData = Partial<
 >;
 
 /**
- * O parâmetro opcional `entityManager` existe para que a criação de `User` +
- * `Author` aconteça numa única transação (ver `UsersService.create`). Quando
- * ausente, o repositório usa a própria conexão — o comportamento de antes.
+ * O parâmetro opcional `entityManager` existe para que escritas que cruzam
+ * `User` e `Author` aconteçam numa única transação: a criação dos dois no
+ * signup (`UsersService.create`) e o `PATCH /authors/:id`, que grava
+ * `name`/`photo` no `User` junto com os campos do autor (`AuthorsService.update`).
+ * Quando ausente, o repositório usa a própria conexão — o comportamento de antes.
  */
 export abstract class AuthorRepository {
   abstract create(
@@ -43,6 +45,7 @@ export abstract class AuthorRepository {
   abstract update(
     id: Author['id'],
     payload: UpdateAuthorData,
+    entityManager?: EntityManager,
   ): Promise<NullableType<Author>>;
 
   /**

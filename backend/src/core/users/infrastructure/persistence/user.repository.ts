@@ -40,6 +40,7 @@ export abstract class UserRepository {
   abstract update(
     id: User['id'],
     payload: DeepPartial<User>,
+    entityManager?: EntityManager,
   ): Promise<User | null>;
 
   abstract remove(id: User['id'], entityManager?: EntityManager): Promise<void>;

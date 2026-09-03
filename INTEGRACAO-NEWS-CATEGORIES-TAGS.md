@@ -66,10 +66,15 @@ Os endpoints que atendem aquela tela **já existem** desde a fase de Auth:
 | O que a tela do protótipo faz | Endpoint real | Auth |
 |---|---|---|
 | "Criar autor" | `POST /api/v1/users` — cria `User` **e** `Author` na mesma transação | admin |
-| "Editar autor" (bio, slug, isColumnist) | `PATCH /api/v1/authors/:id` | dono ou admin |
-| "Editar nome/foto do autor" | `PATCH /api/v1/users/:id` (admin) ou `PATCH /api/v1/auth/me` (o próprio) | — |
+| "Editar autor" (nome, foto, bio, slug, isColumnist) | `PATCH /api/v1/authors/:id` — **tudo numa requisição só** | dono ou admin |
 | "Excluir autor" | `DELETE /api/v1/users/:id` — remove o par `User`+`Author` | admin |
 | "Listar autores" | `GET /api/v1/authors` | público |
+
+> **Mudou:** `name` e `photo` passaram a ser aceitos por `PATCH /authors/:id`.
+> Antes eles só se editavam por `PATCH /users/:id` ou `PATCH /auth/me` — e, pior,
+> mandá-los para `/authors/:id` respondia `200` **sem gravar nada**. Aqueles dois
+> caminhos continuam válidos para administração de usuário; para a tela de
+> autores, use só `PATCH /authors/:id`.
 
 ### Campo a campo: o que existe de verdade
 
@@ -92,18 +97,18 @@ type Author = {
 
 | Campo do protótipo | Situação |
 |---|---|
-| `name` | existe, mas mora no **`User`** — edite por `PATCH /users/:id` ou `PATCH /auth/me` |
+| `name` | existe; mora no **`User`**, mas é editável por `PATCH /authors/:id` (grava no `User` por baixo) |
 | `email` | mora no **`User`**, e **não é devolvido** em rota pública de autor/notícia |
 | `role` | mora no **`User`** (`role.id`: `1` admin, `2` user) |
-| `avatar` | é o **`photo`** do `User` (objeto `{ id, path }`, não string) |
+| `avatar` | é o **`photo`** do `User` (objeto `{ id, path }`, não string); editável por `PATCH /authors/:id`, mandando `{ "id": "<id de arquivo>" }` ou `null` |
 | `bio`, `isColumnist` | existem no `Author` — `PATCH /authors/:id` |
 | `twitter`, `instagram`, `linkedin` | **não existem** no modelo |
 | `active` | **não existe** no `Author`. O equivalente é `status` no `User` (`active`/`inactive`) — mas atenção: hoje o login **não** verifica `status`, então isso não bloqueia acesso |
 
 Na prática, aquela tela é a junção de duas coisas que já existem: **convidar
-usuário** (admin) e **editar perfil**. O caminho mais curto é transformá-la numa
-tela de usuários do painel, com os campos editoriais do autor no mesmo
-formulário.
+usuário** (admin, `POST /users`) e **editar perfil** (`PATCH /authors/:id`, que
+agora cobre nome e foto além dos campos editoriais). Só a criação e a exclusão
+precisam passar por `/users`.
 
 ---
 

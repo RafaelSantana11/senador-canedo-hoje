@@ -99,18 +99,19 @@ export class AuthorsRelationalRepository implements AuthorRepository {
   async update(
     id: Author['id'],
     payload: UpdateAuthorData,
+    entityManager?: EntityManager,
   ): Promise<NullableType<Author>> {
-    const entity = await this.authorsRepository.findOne({ where: { id } });
+    const repository = this.repo(entityManager);
+
+    const entity = await repository.findOne({ where: { id } });
 
     if (!entity) {
       return null;
     }
 
-    await this.authorsRepository.save(
-      this.authorsRepository.merge(entity, payload),
-    );
+    await repository.save(repository.merge(entity, payload));
 
-    const updated = await this.authorsRepository.findOne({ where: { id } });
+    const updated = await repository.findOne({ where: { id } });
 
     return updated ? AuthorMapper.toDomain(updated) : null;
   }

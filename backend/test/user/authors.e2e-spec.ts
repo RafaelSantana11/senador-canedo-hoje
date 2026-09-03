@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
+import { login, uploadFile } from '../utils/create-content';
 import { createUser, loginAsAdmin } from '../utils/create-user';
 
 describe('Authors Module', () => {
@@ -201,6 +202,206 @@ describe('Authors Module', () => {
         .auth(adminToken, { type: 'bearer' })
         .send({ bio: 'nada' })
         .expect(404);
+    });
+  });
+
+  /**
+   * `name` e `photo` não são colunas de `author` — moram no `User`, que é a
+   * fonte única de verdade. Antes da correção, `whitelist: true` descartava os
+   * dois campos antes do service e o `PATCH` respondia `200` com o autor
+   * inalterado: falha silenciosa, o pior modo de falhar para quem consome.
+   */
+  describe('PATCH /api/v1/authors/:id — name e photo (gravam no User)', () => {
+    let editor: Awaited<ReturnType<typeof createUser>>;
+    let editorToken: string;
+    let editorSlug: string;
+    const editorPassword = 'secret';
+
+    beforeAll(async () => {
+      editor = await createUser(adminToken, {
+        email: `editor.${Date.now()}@example.com`,
+        password: editorPassword,
+        name: `Nome Original ${Date.now()}`,
+      });
+
+      editorToken = await login(editor.email, editorPassword);
+      editorSlug = editor.author.slug;
+    });
+
+    it('should actually persist the name, not just echo it back', async () => {
+      const newName = `Nome Novo ${Date.now()}`;
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ name: newName })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.name).toBe(newName);
+        });
+
+      // Regressão do silêncio: só reler pega o campo descartado — a resposta
+      // pode estar certa e o banco não.
+      await request(app)
+        .get(`/api/v1/authors/${editorSlug}`)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.name).toBe(newName);
+        });
+    });
+
+    it('should NOT regenerate the slug when the name changes', async () => {
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ name: `Outro Nome ${Date.now()}` })
+        .expect(200)
+        .expect(({ body }) => {
+          // Trocar o slug junto quebraria links já publicados do perfil.
+          expect(body.slug).toBe(editorSlug);
+        });
+
+      await request(app).get(`/api/v1/authors/${editorSlug}`).expect(200);
+    });
+
+    it('should reflect the new name on /api/v1/auth/me (same User)', async () => {
+      const newName = `Nome Em Auth Me ${Date.now()}`;
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ name: newName })
+        .expect(200);
+
+      await request(app)
+        .get('/api/v1/auth/me')
+        .auth(editorToken, { type: 'bearer' })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.name).toBe(newName);
+        });
+    });
+
+    it('should update name and bio in the same request', async () => {
+      const newName = `Nome E Bio ${Date.now()}`;
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ name: newName, bio: 'Bio e nome juntos.' })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.name).toBe(newName);
+          expect(body.bio).toBe('Bio e nome juntos.');
+        });
+    });
+
+    it('should let an admin rename another author', async () => {
+      const newName = `Renomeado Pelo Admin ${Date.now()}`;
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(adminToken, { type: 'bearer' })
+        .send({ name: newName })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.name).toBe(newName);
+        });
+    });
+
+    it('should forbid renaming another author', () => {
+      return request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(plainAuthorToken, { type: 'bearer' })
+        .send({ name: 'Nome de invasor' })
+        .expect(403)
+        .expect(({ body }) => {
+          expect(body.errors.id).toBe('cannotEditAnotherAuthor');
+        });
+    });
+
+    it('should reject an empty name', () => {
+      return request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ name: '' })
+        .expect(422);
+    });
+
+    it('should set and then clear the photo', async () => {
+      const file = await uploadFile(adminToken);
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ photo: { id: file.id } })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.photo?.id).toBe(file.id);
+        });
+
+      await request(app)
+        .get(`/api/v1/authors/${editorSlug}`)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.photo?.id).toBe(file.id);
+        });
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ photo: null })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.photo).toBeNull();
+        });
+    });
+
+    it('should reject a photo that does not exist', () => {
+      return request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ photo: { id: '00000000-0000-4000-8000-000000000000' } })
+        .expect(422)
+        .expect(({ body }) => {
+          expect(body.errors.photo).toBe('imageNotExists');
+        });
+    });
+
+    /**
+     * A validação toda acontece antes de qualquer escrita, então uma requisição
+     * recusada não pode deixar o nome novo gravado com o resto por aplicar.
+     */
+    it('should not persist the name when the request is rejected', async () => {
+      const nameBefore = await request(app)
+        .get(`/api/v1/authors/${editorSlug}`)
+        .expect(200)
+        .then(({ body }) => body.name);
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({
+          name: `Nome Que Nao Deve Colar ${Date.now()}`,
+          photo: { id: '00000000-0000-4000-8000-000000000000' },
+        })
+        .expect(422);
+
+      await request(app)
+        .patch(`/api/v1/authors/${editor.author.id}`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({
+          name: `Nome Que Tambem Nao Deve Colar ${Date.now()}`,
+          slug: columnist.author.slug,
+        })
+        .expect(422);
+
+      await request(app)
+        .get(`/api/v1/authors/${editorSlug}`)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.name).toBe(nameBefore);
+        });
     });
   });
 });

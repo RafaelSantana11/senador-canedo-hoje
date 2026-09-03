@@ -107,8 +107,14 @@ export class UsersRelationalRepository implements UserRepository {
     return entity ? UserMapper.toDomain(entity) : null;
   }
 
-  async update(id: User['id'], payload: Partial<User>): Promise<User> {
-    const entity = await this.usersRepository.findOne({
+  async update(
+    id: User['id'],
+    payload: Partial<User>,
+    entityManager?: EntityManager,
+  ): Promise<User> {
+    const repository = this.repo(entityManager);
+
+    const entity = await repository.findOne({
       where: { id: Number(id) },
     });
 
@@ -116,8 +122,8 @@ export class UsersRelationalRepository implements UserRepository {
       throw new Error('User not found');
     }
 
-    const updatedEntity = await this.usersRepository.save(
-      this.usersRepository.create(
+    const updatedEntity = await repository.save(
+      repository.create(
         UserMapper.toPersistence({
           ...UserMapper.toDomain(entity),
           ...payload,

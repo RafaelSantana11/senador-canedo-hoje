@@ -485,7 +485,9 @@ Autenticado. Atualiza o próprio usuário.
   confirmação para o novo endereço e só troca depois de
   `POST /auth/email/confirm/new` com o `hash` do link.
 - ⚠️ Campos editoriais (`bio`, `isColumnist`, `slug`) **não** entram aqui — use
-  `PATCH /authors/:id` (seção 3.3).
+  `PATCH /authors/:id` (seção 3.3). O caminho inverso **existe**: desde a
+  correção do `PATCH /authors/:id`, `name` e `photo` podem ser atualizados
+  também por lá, então a tela de autores resolve tudo numa requisição só.
 
 **Response `200`**: o usuário atualizado (sem o `author`).
 
@@ -563,6 +565,11 @@ na resposta do autor — não há objeto `user` aninhado. Isso é deliberado: as
 `provider`, `socialId` e `trialStartDate`. Nenhum desses campos aparece em
 nenhuma resposta de `/authors` (há teste e2e cobrindo exatamente isso).
 
+Morar no `User` é detalhe de armazenamento, não limitação da API: **`PATCH
+/authors/:id` aceita `name` e `photo`** e grava no `User` por baixo, na mesma
+transação dos campos editoriais. A tela de autores edita nome, foto e bio numa
+requisição só.
+
 **Forma do objeto**
 
 ```ts
@@ -616,15 +623,42 @@ Repare que a rota usa o **`id` (uuid)**, não o slug.
 **Request** (todos opcionais)
 
 ```json
-{ "bio": "Cobre política local há 12 anos.", "isColumnist": true, "slug": "mariana-costa" }
+{
+  "name": "Mariana Costa",
+  "photo": { "id": "<id de arquivo>" },
+  "bio": "Cobre política local há 12 anos.",
+  "isColumnist": true,
+  "slug": "mariana-costa"
+}
 ```
 
+| Campo | Onde grava | Observação |
+|---|---|---|
+| `name` | `User.name` | string não vazia |
+| `photo` | `User.photo` | `{ "id": "<uuid>" }` de um arquivo já enviado por `POST /files/upload` — **não** é URL em texto. `null` remove a foto |
+| `bio` | `author.bio` | até 2000 caracteres, aceita `null` |
+| `isColumnist` | `author.isColumnist` | |
+| `slug` | `author.slug` | ver regras abaixo |
+
+Os cinco podem vir na mesma requisição: a gravação em `author` e a gravação em
+`user` acontecem **na mesma transação**, então ou tudo entra ou nada entra.
+
 **Autorização**: o autor edita o próprio perfil; **admin edita qualquer um**.
-Qualquer outro caso é `403` com `{ "id": "cannotEditAnotherAuthor" }`.
+Qualquer outro caso é `403` com `{ "id": "cannotEditAnotherAuthor" }`. Vale
+igual para `name` e `photo` — não há permissão extra por eles serem do `User`,
+já que o dono do autor é o dono do usuário.
 
 Regras do `slug`: só minúsculas, números e hífens (`^[a-z0-9]+(-[a-z0-9]+)*$`),
 2 a 80 caracteres, único no sistema.
 ⚠️ Mudar o slug **quebra links já publicados** para o perfil.
+
+> **Mudar o `name` NÃO muda o `slug`.** O slug nasce do nome na criação do
+> usuário, mas depois disso segue independente — regerá-lo a cada renomeação
+> quebraria os links já publicados do perfil. Se a tela precisar dos dois
+> atualizados, mande `name` e `slug` juntos no mesmo `PATCH` e assuma a quebra
+> de link conscientemente.
+
+**Response `200`**: o autor recarregado do banco, já com `name`/`photo` novos.
 
 **Erros**
 
@@ -635,6 +669,8 @@ Regras do `slug`: só minúsculas, números e hífens (`^[a-z0-9]+(-[a-z0-9]+)*$
 | `404` | `{ "id": "authorNotFound" }` | id inexistente |
 | `422` | `{ "slug": "slugAlreadyExists" }` | slug em uso |
 | `422` | `{ "slug": "slugInvalidFormat" }` | formato inválido |
+| `422` | `{ "photo": "imageNotExists" }` | o `id` do arquivo não existe no acervo |
+| `422` | `{ "name": "..." }` | `name` vazio ou não-string |
 
 ---
 
