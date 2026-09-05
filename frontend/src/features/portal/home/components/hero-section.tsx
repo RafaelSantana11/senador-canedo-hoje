@@ -2,6 +2,7 @@
 
 import { Clock } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { CategoryBadge } from "./category-badge"
 import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
@@ -26,9 +27,13 @@ export function HeroSection() {
         href={`/noticia/${hero.slug}`}
         className="group relative col-span-1 aspect-[16/9] overflow-hidden rounded-2xl shadow-sm ring-1 ring-border transition-shadow hover:shadow-xl lg:col-span-2 lg:aspect-auto lg:min-h-[430px]"
       >
-        <img
+        <Image
+          fill
           src={assetPath(hero.cover?.path || "/placeholder.svg")}
           alt=""
+          unoptimized
+          loading="eager"
+          sizes="(max-width: 1024px) 100vw, 66vw"
           className="absolute inset-0 size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
         />
         <div className="absolute inset-0 bg-linear-to-t from-primary/20 via-primary/10 to-transparent" />
@@ -63,9 +68,12 @@ export function HeroSection() {
             className="group relative flex-1 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border transition-shadow hover:shadow-lg"
           >
             <div className="relative h-40 w-full overflow-hidden lg:h-full lg:min-h-[9rem]">
-              <img
+              <Image
+                fill
                 src={assetPath(article.cover?.path || "/placeholder.svg")}
                 alt=""
+                unoptimized
+                sizes="(max-width: 1024px) 100vw, 33vw"
                 className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
               />
               <div className="absolute inset-0 bg-linear-to-t from-primary/50 via-primary/30 to-transparent" />

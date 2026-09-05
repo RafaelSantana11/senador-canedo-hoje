@@ -1,4 +1,5 @@
 import { Play } from "lucide-react"
+import Image from "next/image"
 import { videos } from "@/lib/news-data"
 import { assetPath } from "@/lib/utils"
 
@@ -30,9 +31,12 @@ export function VideosSection() {
         {videos.map((video) => (
           <a key={video.id} href="#" className="group flex flex-col">
             <div className="relative aspect-video overflow-hidden rounded-2xl ring-1 ring-primary-foreground/10">
-              <img
+              <Image
+                fill
                 src={assetPath(video.thumbnail || "/placeholder.svg")}
                 alt=""
+                unoptimized
+                sizes="(max-width: 768px) 100vw, 33vw"
                 className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
               />
               <div className="absolute inset-0 bg-primary/20 transition-colors group-hover:bg-primary/10" />

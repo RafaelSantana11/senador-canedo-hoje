@@ -66,45 +66,83 @@ export type HomeSections = {
  * Deriva todas as seções da home de uma única listagem publicada, na ordem
  * editorial: hero → secundárias → grade → mais lidas → últimas.
  */
-export function selectHomeSections(list: PublicNews[]): HomeSections {
+export function selectHomeSections(
+  list: PublicNews[],
+  stableList: PublicNews[] = list,
+): HomeSections {
   // As marcadas como "lateral" ("Viu isso?") saem do feed geral e das
   // "últimas": o pool "recent" usado pelas seções de conteúdo já as exclui.
   const recent = sortRecent(
     list.filter((n) => readPosition(n.config) !== "lateral"),
   )
 
-  const hero = slotItems(list, "destaque")[0] ?? recent[0] ?? null
+  // Infinite scroll must not reshuffle the visible composition when an older
+  // page contains another editorial slot (for example, a second "destaque").
+  // The first loaded page establishes the home layout; later pages extend the
+  // feed instead of replacing cards already on screen.
+  const stableRecent = sortRecent(
+    stableList.filter((n) => readPosition(n.config) !== "lateral"),
+  )
+  const hero =
+    slotItems(stableList, "destaque")[0] ?? stableRecent[0] ?? recent[0] ?? null
   const heroIds = new Set(hero ? [hero.id] : [])
 
   const heroSecondary = fillFrom(
-    [slotItems(list, "topo"), recent],
+    [slotItems(stableList, "topo"), stableRecent],
     heroIds,
     HERO_SECONDARY_COUNT,
   )
 
-  // Grade principal: TODAS as notícias que não entraram no hero/secundárias,
-  // priorizando as marcadas como "feed" e completando com as mais recentes.
-  // Usa um Set próprio para não esvaziar as seções da sidebar.
-  const featured = fillFrom(
-    [slotItems(list, "feed"), recent],
-    new Set(heroIds),
+  const layoutIds = new Set([
+    ...heroIds,
+    ...heroSecondary.map((article) => article.id),
+  ])
+
+  // Grade principal: monta primeiro a ordem da página inicial e só depois
+  // acrescenta notícias das páginas seguintes. Recalcular `feed` sobre a lista
+  // inteira faria uma notícia antiga com positionOrder menor entrar no começo
+  // e empurrar cards que o usuário já viu para outras posições.
+  const initialFeatured = fillFrom(
+    [slotItems(stableList, "feed"), stableRecent],
+    layoutIds,
     Number.MAX_SAFE_INTEGER,
   )
+  const featuredIds = new Set(initialFeatured.map((article) => article.id))
+  const featured = [
+    ...initialFeatured,
+    ...list.filter((article) => {
+      if (
+        featuredIds.has(article.id) ||
+        layoutIds.has(article.id) ||
+        readPosition(article.config) === "lateral"
+      ) {
+        return false
+      }
+      featuredIds.add(article.id)
+      return true
+    }),
+  ]
 
   const mostRead = fillFrom(
-    [[...list].sort((a, b) => b.views - a.views)],
+    [[...stableList].sort((a, b) => b.views - a.views)],
     new Set<string>(),
     MOST_READ_COUNT,
   )
   // "Últimas notícias": agora apenas as realmente recentes. As marcadas como
   // "lateral" deixaram de ser pinadas aqui e ganharam a seção própria "Viu isso?".
   const latest = fillFrom(
-    [recent],
+    [stableRecent],
     new Set(heroIds),
     LATEST_COUNT,
   )
   // "Viu isso?": matérias marcadas como "lateral", na ordem definida no painel.
-  const sawThis = slotItems(list, "lateral")
+  const stableLateralIds = new Set(stableList.map((article) => article.id))
+  const sawThis = [
+    ...slotItems(stableList, "lateral"),
+    ...slotItems(list, "lateral").filter(
+      (article) => !stableLateralIds.has(article.id),
+    ),
+  ]
 
   return { hero, heroSecondary, featured, mostRead, latest, sawThis }
 }

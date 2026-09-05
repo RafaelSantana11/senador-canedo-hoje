@@ -3,6 +3,7 @@
 import { Fragment } from "react"
 import { Clock } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { CategoryBadge } from "./category-badge"
 import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
@@ -16,12 +17,15 @@ function FeaturedCard({ article }: { article: PublicNews }) {
   return (
     <Link
       href={`/noticia/${article.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border transition-all hover:-translate-y-0.5 hover:shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 motion-safe:ease-out"
     >
       <div className="relative aspect-[16/10] overflow-hidden">
-        <img
+        <Image
+          fill
           src={assetPath(article.cover?.path || "/placeholder.svg")}
           alt=""
+          unoptimized
+          sizes="(max-width: 640px) 100vw, 50vw"
           className="size-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
         />
         <CategoryBadge

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useForm } from "react-hook-form"
 import { Menu, Search, X } from "lucide-react"
 import { usePortalCategories } from "../hooks/use-categories"
@@ -85,10 +86,12 @@ export function SiteHeader() {
           >
             {logoUrl ? (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={logoUrl}
                   alt={logoAlt}
+                  width={128}
+                  height={32}
+                  unoptimized
                   className="h-8 w-auto object-contain"
                 />
                 {showNameWithLogo && (

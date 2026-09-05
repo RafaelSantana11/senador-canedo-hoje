@@ -55,7 +55,19 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
     [rawNews, searchQuery],
   )
 
-  const sections = useMemo(() => selectHomeSections(allNews), [allNews])
+  const stableNews = useMemo(
+    () =>
+      filterByQuery(
+        (infinite.data?.pages[0]?.data ?? []) as PublicNews[],
+        searchQuery,
+      ),
+    [infinite.data, searchQuery],
+  )
+
+  const sections = useMemo(
+    () => selectHomeSections(allNews, stableNews),
+    [allNews, stableNews],
+  )
 
   const loadedPages = infinite.data?.pages.length ?? 0
 

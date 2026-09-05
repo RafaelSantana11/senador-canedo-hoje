@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useServeBanners } from "../hooks/use-serve-banners"
@@ -47,13 +48,13 @@ export function AdBanner({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl",
+        "relative overflow-hidden rounded-xl",
         size === "box"
           ? "aspect-square w-full"
           : size === "middle"
             ? "h-40 w-full sm:h-44"
             : "h-24 w-full sm:h-28",
-        className
+        className,
       )}
       role="complementary"
       aria-label="Espaço publicitário"
@@ -87,16 +88,19 @@ function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
   const item = items[index] ?? items[0]
 
   const img = (
-    // eslint-disable-next-line @next/next/no-img-element -- URL pública do storage/CDN, fora do controle do build
-    <img
+    <Image
+      fill
       src={item.image.path}
       alt={item.alt ?? item.image.alt ?? ""}
+      unoptimized
+      loading="eager"
+      sizes="(max-width: 640px) 100vw, 33vw"
       className="h-full w-full object-cover"
     />
   )
 
   return item.linkUrl ? (
-    <a href={item.linkUrl} target="_blank" rel="noreferrer sponsored" className="block h-full w-full">
+    <a href={item.linkUrl} target="_blank" rel="noreferrer sponsored" className="relative block h-full w-full">
       {img}
     </a>
   ) : (

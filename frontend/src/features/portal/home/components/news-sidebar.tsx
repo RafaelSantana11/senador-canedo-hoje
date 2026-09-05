@@ -34,7 +34,7 @@ export function NewsSidebar() {
       {/* Mais lidas */}
       {mostRead.length > 0 && (
         <section
-          className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border"
+          className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:ease-out"
           aria-labelledby="mais-lidas-heading"
         >
           <div className="flex items-center gap-2 border-b border-border bg-primary px-5 py-3.5 text-primary-foreground">
@@ -73,7 +73,7 @@ export function NewsSidebar() {
       {/* Últimas notícias */}
       {latest.length > 0 && (
         <section
-          className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border"
+          className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:ease-out"
           aria-labelledby="ultimas-heading"
         >
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
@@ -119,7 +119,7 @@ export function NewsSidebar() {
         <Fragment key={`viu-isso-${blockIndex}`}>
           {blockIndex > 0 && <AdBanner size="box" />}
           <section
-            className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border"
+            className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:ease-out"
             aria-labelledby={`viu-isso-heading-${blockIndex}`}
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
