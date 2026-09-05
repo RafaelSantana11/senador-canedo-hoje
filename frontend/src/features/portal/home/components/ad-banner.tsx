@@ -87,11 +87,14 @@ function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
 
   const item = items[index] ?? items[0]
 
+  const alt = item.alt ?? item.image.alt ?? "Publicidade"
+
   const img = (
     <Image
       fill
       src={item.image.path}
-      alt={item.alt ?? item.image.alt ?? ""}
+      alt={item.linkUrl ? "" : alt}
+      aria-hidden={item.linkUrl ? true : undefined}
       unoptimized
       loading="eager"
       sizes="(max-width: 640px) 100vw, 33vw"
@@ -100,7 +103,13 @@ function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
   )
 
   return item.linkUrl ? (
-    <a href={item.linkUrl} target="_blank" rel="noreferrer sponsored" className="relative block h-full w-full">
+    <a
+      href={item.linkUrl}
+      target="_blank"
+      rel="noreferrer sponsored"
+      aria-label={alt}
+      className="relative block h-full w-full"
+    >
       {img}
     </a>
   ) : (
