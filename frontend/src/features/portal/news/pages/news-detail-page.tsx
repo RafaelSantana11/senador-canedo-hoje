@@ -3,6 +3,7 @@ import { isAxiosError } from "axios"
 import { ArticlePage } from "../components/article-page"
 import { getNewsBySlug, getRelatedNews } from "../services/news-service"
 import { toArticleView, toRelatedArticleView } from "../utils/mappers"
+import type { RelatedArticleView } from "../types/news"
 
 interface NewsDetailPageProps {
   slug: string
@@ -18,11 +19,17 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
     throw err
   }
 
-  const relatedResponse = await getRelatedNews(article.category.slug)
-  const related = relatedResponse.data
-    .filter((item) => item.id !== article.id)
-    .slice(0, 3)
-    .map(toRelatedArticleView)
+  let related: RelatedArticleView[] = []
+  try {
+    const relatedResponse = await getRelatedNews(article.category.slug)
+    related = relatedResponse.data
+      .filter((item) => item.id !== article.id)
+      .slice(0, 3)
+      .map(toRelatedArticleView)
+  } catch {
+    // Recommendations are optional; they must not make the article unavailable.
+    related = []
+  }
 
   return <ArticlePage article={toArticleView(article)} related={related} />
 }

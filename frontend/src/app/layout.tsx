@@ -6,6 +6,7 @@ import { Providers } from "@/components/providers"
 import { AnalyticsProvider } from "@/components/analytics/analytics-provider"
 import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
+import { absoluteSiteUrl, getMetadataBase } from "@/lib/seo"
 
 const merriweatherHeading = Merriweather({
   subsets: ["latin"],
@@ -15,9 +16,26 @@ const merriweatherHeading = Merriweather({
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "Senador Canedo Hoje — Notícias em tempo real",
   description:
     "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
+  alternates: {
+    canonical: absoluteSiteUrl(),
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Senador Canedo Hoje",
+    title: "Senador Canedo Hoje — Notícias em tempo real",
+    description:
+      "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
+    url: absoluteSiteUrl(),
+  },
   generator: "v0.app",
   // Metadata URLs are emitted verbatim — Next does not apply basePath here, so
   // these need assetPath or the favicons 404 on a subpath deploy.

@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query"
 import HomePage from "@/features/portal/home/pages/home-page"
 import { infiniteNewsOptions } from "@/features/portal/home/services/news-infinite-options"
+import { absoluteSiteUrl } from "@/lib/seo"
 
 // ISR: a primeira página é pré-renderizada/cacheada por 60s. As páginas
 // seguintes (infinite scroll) carregam no client via useInfiniteQuery.
@@ -16,6 +17,16 @@ export const metadata: Metadata = {
   title: "Senador Canedo Hoje — Notícias em tempo real",
   description:
     "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
+  alternates: {
+    canonical: absoluteSiteUrl(),
+  },
+  openGraph: {
+    type: "website",
+    title: "Senador Canedo Hoje — Notícias em tempo real",
+    description:
+      "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
+    url: absoluteSiteUrl(),
+  },
 }
 
 export default async function PortalHomePage() {
