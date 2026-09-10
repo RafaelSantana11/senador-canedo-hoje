@@ -35,7 +35,7 @@ interface ArticleData {
   urgent: boolean
   content: string
   excerpt?: string
-  createdAt?: string
+  publishedAt?: string
 }
 
 interface ArticlePageProps {
@@ -103,7 +103,7 @@ export function ArticlePage({
     urgent,
     content,
     excerpt,
-    createdAt,
+    publishedAt,
   } = article
 
   const blocks = splitMarkdownBlocks(content)
@@ -276,7 +276,11 @@ export function ArticlePage({
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            {formatDate(createdAt)}
+            {publishedAt ? (
+              <time dateTime={publishedAt}>{formatDate(publishedAt)}</time>
+            ) : (
+              formatDate(publishedAt)
+            )}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Clock className="h-4 w-4" />

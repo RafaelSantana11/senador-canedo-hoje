@@ -1,4 +1,6 @@
 import { PortalFooter } from "@/components/layout/portal-footer"
+import { JsonLd } from "@/components/seo/json-ld"
+import { siteJsonLd } from "@/lib/structured-data"
 
 export default function PortalLayout({
   children,
@@ -7,6 +9,7 @@ export default function PortalLayout({
 }) {
   return (
     <>
+      <JsonLd data={siteJsonLd()} />
       {children}
       <PortalFooter />
     </>

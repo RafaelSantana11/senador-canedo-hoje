@@ -6,9 +6,18 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   return data
 }
 
-export async function getMe(): Promise<AuthUser> {
-  const { data } = await api.get<AuthUser>("auth/me")
-  return data
+let meRequest: Promise<AuthUser> | null = null
+
+export function getMe(): Promise<AuthUser> {
+  if (!meRequest) {
+    meRequest = api
+      .get<AuthUser>("auth/me")
+      .then(({ data }) => data)
+      .finally(() => {
+        meRequest = null
+      })
+  }
+  return meRequest
 }
 
 export async function logoutUser(): Promise<void> {

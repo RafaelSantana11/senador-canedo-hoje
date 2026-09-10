@@ -109,7 +109,7 @@ function NewsEditor({
   const [config] = useState<Record<string, unknown> | null>(news?.config ?? null)
   const [urgent, setUrgent] = useState(news ? readUrgent(news.config) : false)
   const [content, setContent] = useState(news?.body ?? "")
-  const [createdAt] = useState(news?.createdAt ?? "")
+  const [publishedAt] = useState(news?.publishedAt ?? news?.createdAt ?? "")
   const [previewTab, setPreviewTab] = useState("card")
   const [expanded, setExpanded] = useState(false)
 
@@ -317,7 +317,7 @@ function NewsEditor({
                 urgent,
                 content,
                 excerpt: generateExcerpt(content),
-                createdAt: createdAt || undefined,
+                publishedAt: publishedAt || undefined,
               }}
             />
           </div>
@@ -409,7 +409,7 @@ function NewsEditor({
                           urgent,
                           content,
                           excerpt: generateExcerpt(content),
-                          createdAt: createdAt || undefined,
+                          publishedAt: publishedAt || undefined,
                         }}
                       />
                     </div>

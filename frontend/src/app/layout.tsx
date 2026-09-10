@@ -6,7 +6,7 @@ import { Providers } from "@/components/providers"
 import { AnalyticsProvider } from "@/components/analytics/analytics-provider"
 import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
-import { absoluteSiteUrl, getMetadataBase } from "@/lib/seo"
+import { absoluteSiteUrl, defaultOpenGraphImage, getMetadataBase } from "@/lib/seo"
 
 const merriweatherHeading = Merriweather({
   subsets: ["latin"],
@@ -17,7 +17,10 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
-  title: "Senador Canedo Hoje — Notícias em tempo real",
+  title: {
+    default: "Senador Canedo Hoje — Notícias em tempo real",
+    template: "%s — Senador Canedo Hoje",
+  },
   description:
     "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
   alternates: {
@@ -35,6 +38,7 @@ export const metadata: Metadata = {
     description:
       "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
     url: absoluteSiteUrl(),
+    images: [defaultOpenGraphImage],
   },
   generator: "v0.app",
   // Metadata URLs are emitted verbatim — Next does not apply basePath here, so

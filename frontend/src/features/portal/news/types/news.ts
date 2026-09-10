@@ -60,7 +60,7 @@ export type ArticleView = {
   urgent: boolean
   content: string
   excerpt?: string
-  createdAt?: string
+  publishedAt?: string
 }
 
 /** View model dos cards de "Leia também". */

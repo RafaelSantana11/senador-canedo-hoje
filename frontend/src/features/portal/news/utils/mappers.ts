@@ -17,7 +17,7 @@ export function toArticleView(news: NewsDetail): ArticleView {
     urgent: readUrgent(news.config),
     content: news.body,
     excerpt: news.summary ?? "",
-    createdAt: news.publishedAt ?? news.createdAt,
+    publishedAt: news.publishedAt ?? news.createdAt,
   }
 }
 

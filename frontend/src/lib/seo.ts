@@ -31,3 +31,11 @@ export function absoluteMediaUrl(path: string) {
 export function getMetadataBase() {
   return getBaseUrl()
 }
+
+/** Imagem de compartilhamento padrão, servida pela rota /og. */
+export const defaultOpenGraphImage = {
+  url: absoluteSiteUrl("/og"),
+  width: 1200,
+  height: 630,
+  alt: "Senador Canedo Hoje — Notícias em tempo real",
+}

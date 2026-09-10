@@ -3,7 +3,11 @@ import { isAxiosError } from "axios"
 import NewsDetailPage from "@/features/portal/news/pages/news-detail-page"
 import { getNewsBySlug } from "@/features/portal/news/services/news-service"
 import { generateExcerpt } from "@/components/admin/news-editor/markdown-utils"
-import { absoluteMediaUrl, absoluteSiteUrl } from "@/lib/seo"
+import {
+  absoluteMediaUrl,
+  absoluteSiteUrl,
+  defaultOpenGraphImage,
+} from "@/lib/seo"
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -20,9 +24,12 @@ export async function generateMetadata({
       article.summary?.trim() || generateExcerpt(article.body, 160) ||
       "Leia esta notícia no Senador Canedo Hoje."
     const image = article.cover?.path
+    const tags = article.tags.map((tag) => tag.name)
     return {
-      title: `${article.title} — Senador Canedo Hoje`,
+      title: article.title,
       description,
+      keywords: [...tags, article.category.name],
+      authors: [{ name: article.author.name }],
       alternates: {
         canonical: url,
       },
@@ -31,9 +38,17 @@ export async function generateMetadata({
         description,
         type: "article",
         url,
+        siteName: "Senador Canedo Hoje",
+        locale: "pt_BR",
         publishedTime: article.publishedAt ?? article.createdAt,
+        modifiedTime: article.updatedAt,
         authors: [article.author.name],
-        images: image ? [{ url: absoluteMediaUrl(image) }] : undefined,
+        section: article.category.name,
+        tags,
+        // Capa quando existe; senão a imagem padrão do portal.
+        images: image
+          ? [{ url: absoluteMediaUrl(image), alt: article.title }]
+          : [defaultOpenGraphImage],
       },
     }
   } catch (error) {

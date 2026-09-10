@@ -4,6 +4,10 @@ import { ArticlePage } from "../components/article-page"
 import { getNewsBySlug, getRelatedNews } from "../services/news-service"
 import { toArticleView, toRelatedArticleView } from "../utils/mappers"
 import type { RelatedArticleView } from "../types/news"
+import { generateExcerpt } from "@/components/admin/news-editor/markdown-utils"
+import { JsonLd } from "@/components/seo/json-ld"
+import { absoluteSiteUrl } from "@/lib/seo"
+import { breadcrumbJsonLd, newsArticleJsonLd } from "@/lib/structured-data"
 
 interface NewsDetailPageProps {
   slug: string
@@ -31,5 +35,22 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
     related = []
   }
 
-  return <ArticlePage article={toArticleView(article)} related={related} />
+  const url = absoluteSiteUrl(`/noticia/${article.slug}`)
+  const description =
+    article.summary?.trim() ||
+    generateExcerpt(article.body, 160) ||
+    "Leia esta notícia no Senador Canedo Hoje."
+
+  return (
+    <>
+      <JsonLd data={newsArticleJsonLd(article, description)} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Início", url: absoluteSiteUrl() },
+          { name: article.title, url },
+        ])}
+      />
+      <ArticlePage article={toArticleView(article)} related={related} />
+    </>
+  )
 }

@@ -54,7 +54,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
   const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
   const user = useAuthStore((state) => state.user)
-  const refreshToken = useAuthStore((state) => state.refreshToken)
+  const hasSession = useAuthStore((state) => Boolean(state.refreshToken))
   const [ready, setReady] = useState(false)
   const [authError, setAuthError] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -69,7 +69,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    if (!refreshToken) {
+    if (!hasSession) {
       router.replace("/login")
       return
     }
@@ -87,7 +87,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         setAuthError(true)
         setReady(false)
       })
-  }, [router, refreshToken, attempt])
+  }, [router, hasSession, attempt])
 
   useEffect(() => {
     setMobileOpen(false)
