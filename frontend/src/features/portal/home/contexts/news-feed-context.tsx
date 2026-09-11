@@ -8,7 +8,11 @@ import {
   type ReactNode,
 } from "react"
 import { useInfinitePortalNews } from "../hooks/use-infinite-news"
-import { selectHomeSections, type HomeSections } from "../utils/showcase"
+import {
+  selectHomeSections,
+  sortUrgentFirst,
+  type HomeSections,
+} from "../utils/showcase"
 import { filterByQuery } from "../utils/filter-by-query"
 import type { PublicNews } from "../types/news"
 import { useSelectedCategory } from "./category-context"
@@ -45,12 +49,14 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
   const firstPage = pages?.[0]
 
   // Achata as páginas numa lista única, deduplicando por id (mesmo que uma
-  // página futura devolva um item já visto, não renderizamos cópias).
+  // página futura devolva um item já visto, não renderizamos cópias). A ordem
+  // urgente-primeiro é aplicada por página: as novas entram no fim do feed sem
+  // empurrar os cards que o usuário já viu.
   const rawNews = useMemo(() => {
     const seen = new Set<string>()
     const flat: PublicNews[] = []
     for (const page of pages ?? []) {
-      for (const item of page?.data ?? []) {
+      for (const item of sortUrgentFirst(page?.data ?? [])) {
         if (seen.has(item.id)) continue
         seen.add(item.id)
         flat.push(item)

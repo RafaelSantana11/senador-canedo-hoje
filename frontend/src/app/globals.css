@@ -55,6 +55,16 @@
   --color-sidebar-ring: #1e4f9a;
 }
 
+@theme {
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
 @layer base {
   .dark {
     /* Light mode colors */

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Image from "next/image"
+import { FadeInImage } from "@/components/common/fade-in-image"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useServeBanners } from "../hooks/use-serve-banners"
@@ -90,7 +90,7 @@ function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
   const alt = item.alt ?? item.image.alt ?? "Publicidade"
 
   const img = (
-    <Image
+    <FadeInImage
       fill
       src={item.image.path}
       alt={item.linkUrl ? "" : alt}

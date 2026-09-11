@@ -1,6 +1,7 @@
 import {
   readPosition,
   readPositionOrder,
+  readUrgent,
   type PublicNews,
   type PublicNewsPosition,
 } from "../types/news"
@@ -20,6 +21,14 @@ function recency(news: PublicNews): number {
 
 function sortRecent(list: PublicNews[]): PublicNews[] {
   return [...list].sort((a, b) => recency(b) - recency(a))
+}
+
+// "Urgente" abre o feed: estável, para não trocar a ordem relativa dos demais
+// nem reordenar cards já vistos quando uma página nova chega.
+export function sortUrgentFirst(list: PublicNews[]): PublicNews[] {
+  return [...list].sort(
+    (a, b) => Number(readUrgent(b.config)) - Number(readUrgent(a.config))
+  )
 }
 
 function slotItems(
@@ -104,10 +113,12 @@ export function selectHomeSections(
   // acrescenta notícias das páginas seguintes. Recalcular `feed` sobre a lista
   // inteira faria uma notícia antiga com positionOrder menor entrar no começo
   // e empurrar cards que o usuário já viu para outras posições.
-  const initialFeatured = fillFrom(
-    [slotItems(stableList, "feed"), stableRecent],
-    layoutIds,
-    Number.MAX_SAFE_INTEGER
+  const initialFeatured = sortUrgentFirst(
+    fillFrom(
+      [slotItems(stableList, "feed"), stableRecent],
+      layoutIds,
+      Number.MAX_SAFE_INTEGER
+    )
   )
   const featuredIds = new Set(initialFeatured.map((article) => article.id))
   const featured = [

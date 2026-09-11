@@ -3,7 +3,7 @@
 import { Fragment } from "react"
 import { Clock } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
+import { FadeInImage } from "@/components/common/fade-in-image"
 import { CategoryBadge } from "./category-badge"
 import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
@@ -37,7 +37,7 @@ function FeaturedCard({
       )}
     >
       <div className="relative aspect-[16/10] overflow-hidden">
-        <Image
+        <FadeInImage
           fill
           src={assetPath(article.cover?.path || "/placeholder.svg")}
           alt=""
