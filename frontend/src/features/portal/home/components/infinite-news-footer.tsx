@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { RefreshCw } from "lucide-react"
 import { useNewsFeed } from "../contexts/news-feed-context"
 
 // A quantos px do fim da lista o sentinela dispara o carregamento da próxima
-// página — carrega um pouco antes de o usuário chegar ao fim.
-const ROOT_MARGIN_PX = 300
+// página — começa bem antes de o usuário chegar ao fim, para a página seguinte
+// já estar pronta (ou quase) quando ele chegar lá.
+const ROOT_MARGIN_PX = 600
 
 export function InfiniteNewsFooter() {
   const {
@@ -23,13 +24,13 @@ export function InfiniteNewsFooter() {
   const busyRef = useRef(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  const load = () => {
+  const load = useCallback(() => {
     if (busyRef.current || isFetchingNextPage) return
     busyRef.current = true
     void fetchNextPage().finally(() => {
       busyRef.current = false
     })
-  }
+  }, [fetchNextPage, isFetchingNextPage])
 
   // Substitui a query string ?page={n} conforme as páginas vão sendo carregadas,
   // sem recarregar a página. Preserva "voltar" e deixa crawlers/links reais de
@@ -45,8 +46,9 @@ export function InfiniteNewsFooter() {
     window.history.replaceState(window.history.state, "", url)
   }, [loadedPages])
 
-  // IntersectionObserver: sentinela no fim da lista com rootMargin de ~300px
-  // para pré-carregar a próxima página antes de o usuário chegar ao fim.
+  // IntersectionObserver: sentinela no fim da lista com rootMargin generoso
+  // para pré-carregar a próxima página. Em erro, não redispara sozinho — o
+  // botão "Tentar novamente" faz o retry manual.
   useEffect(() => {
     const element = sentinelRef.current
     if (!element) return
@@ -55,18 +57,16 @@ export function InfiniteNewsFooter() {
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue
-          if (busyRef.current || isFetchingNextPage) continue
-          if (!hasNextPage) continue
+          if (isError || !hasNextPage) continue
           load()
         }
       },
-      { rootMargin: `${ROOT_MARGIN_PX}px 0px` },
+      { rootMargin: `${ROOT_MARGIN_PX}px 0px` }
     )
 
     observer.observe(element)
     return () => observer.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load é redefinida a cada render
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
+  }, [hasNextPage, isError, load])
 
   // Fim da lista: nada a carregar.
   if (!hasNextPage) {

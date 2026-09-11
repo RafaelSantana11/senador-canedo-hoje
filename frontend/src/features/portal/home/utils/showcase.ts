@@ -24,14 +24,14 @@ function sortRecent(list: PublicNews[]): PublicNews[] {
 
 function slotItems(
   list: PublicNews[],
-  position: PublicNewsPosition,
+  position: PublicNewsPosition
 ): PublicNews[] {
   return list
     .filter((news) => readPosition(news.config) === position)
     .sort(
       (a, b) =>
         readPositionOrder(a.config) - readPositionOrder(b.config) ||
-        recency(b) - recency(a),
+        recency(b) - recency(a)
     )
 }
 
@@ -39,7 +39,7 @@ function slotItems(
 function fillFrom(
   pools: PublicNews[][],
   usedIds: Set<string>,
-  count: number,
+  count: number
 ): PublicNews[] {
   const picked: PublicNews[] = []
   for (const pool of pools) {
@@ -60,6 +60,8 @@ export type HomeSections = {
   mostRead: PublicNews[]
   latest: PublicNews[]
   sawThis: PublicNews[]
+  /** Quantos itens de `sawThis` vieram da primeira página (layout estável). */
+  sawThisStableCount: number
 }
 
 /**
@@ -68,12 +70,12 @@ export type HomeSections = {
  */
 export function selectHomeSections(
   list: PublicNews[],
-  stableList: PublicNews[] = list,
+  stableList: PublicNews[] = list
 ): HomeSections {
   // As marcadas como "lateral" ("Viu isso?") saem do feed geral e das
   // "últimas": o pool "recent" usado pelas seções de conteúdo já as exclui.
   const recent = sortRecent(
-    list.filter((n) => readPosition(n.config) !== "lateral"),
+    list.filter((n) => readPosition(n.config) !== "lateral")
   )
 
   // Infinite scroll must not reshuffle the visible composition when an older
@@ -81,7 +83,7 @@ export function selectHomeSections(
   // The first loaded page establishes the home layout; later pages extend the
   // feed instead of replacing cards already on screen.
   const stableRecent = sortRecent(
-    stableList.filter((n) => readPosition(n.config) !== "lateral"),
+    stableList.filter((n) => readPosition(n.config) !== "lateral")
   )
   const hero =
     slotItems(stableList, "destaque")[0] ?? stableRecent[0] ?? recent[0] ?? null
@@ -90,7 +92,7 @@ export function selectHomeSections(
   const heroSecondary = fillFrom(
     [slotItems(stableList, "topo"), stableRecent],
     heroIds,
-    HERO_SECONDARY_COUNT,
+    HERO_SECONDARY_COUNT
   )
 
   const layoutIds = new Set([
@@ -105,7 +107,7 @@ export function selectHomeSections(
   const initialFeatured = fillFrom(
     [slotItems(stableList, "feed"), stableRecent],
     layoutIds,
-    Number.MAX_SAFE_INTEGER,
+    Number.MAX_SAFE_INTEGER
   )
   const featuredIds = new Set(initialFeatured.map((article) => article.id))
   const featured = [
@@ -126,23 +128,28 @@ export function selectHomeSections(
   const mostRead = fillFrom(
     [[...stableList].sort((a, b) => b.views - a.views)],
     new Set<string>(),
-    MOST_READ_COUNT,
+    MOST_READ_COUNT
   )
   // "Últimas notícias": agora apenas as realmente recentes. As marcadas como
   // "lateral" deixaram de ser pinadas aqui e ganharam a seção própria "Viu isso?".
-  const latest = fillFrom(
-    [stableRecent],
-    new Set(heroIds),
-    LATEST_COUNT,
-  )
+  const latest = fillFrom([stableRecent], new Set(heroIds), LATEST_COUNT)
   // "Viu isso?": matérias marcadas como "lateral", na ordem definida no painel.
   const stableLateralIds = new Set(stableList.map((article) => article.id))
+  const stableLateral = slotItems(stableList, "lateral")
   const sawThis = [
-    ...slotItems(stableList, "lateral"),
+    ...stableLateral,
     ...slotItems(list, "lateral").filter(
-      (article) => !stableLateralIds.has(article.id),
+      (article) => !stableLateralIds.has(article.id)
     ),
   ]
 
-  return { hero, heroSecondary, featured, mostRead, latest, sawThis }
+  return {
+    hero,
+    heroSecondary,
+    featured,
+    mostRead,
+    latest,
+    sawThis,
+    sawThisStableCount: stableLateral.length,
+  }
 }

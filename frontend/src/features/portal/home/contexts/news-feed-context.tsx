@@ -1,6 +1,12 @@
 "use client"
 
-import { createContext, useContext, useMemo, type ReactNode } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from "react"
 import { useInfinitePortalNews } from "../hooks/use-infinite-news"
 import { selectHomeSections, type HomeSections } from "../utils/showcase"
 import { filterByQuery } from "../utils/filter-by-query"
@@ -32,15 +38,18 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
   const { searchQuery } = useSearch()
 
   const infinite = useInfinitePortalNews(
-    selectedSlug ? { category: selectedSlug } : {},
+    selectedSlug ? { category: selectedSlug } : {}
   )
+
+  const pages = infinite.data?.pages
+  const firstPage = pages?.[0]
 
   // Achata as páginas numa lista única, deduplicando por id (mesmo que uma
   // página futura devolva um item já visto, não renderizamos cópias).
   const rawNews = useMemo(() => {
     const seen = new Set<string>()
     const flat: PublicNews[] = []
-    for (const page of infinite.data?.pages ?? []) {
+    for (const page of pages ?? []) {
       for (const item of page?.data ?? []) {
         if (seen.has(item.id)) continue
         seen.add(item.id)
@@ -48,41 +57,66 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
       }
     }
     return flat
-  }, [infinite.data])
+  }, [pages])
 
   const allNews = useMemo(
     () => filterByQuery(rawNews, searchQuery),
-    [rawNews, searchQuery],
+    [rawNews, searchQuery]
   )
 
+  // A composição editorial (hero, secundárias, mais lidas, últimas) é definida
+  // pela primeira página; só a grade e o "Viu isso?" avançam com o scroll. Por
+  // isso a dependência é o objeto da página 1, não o array `pages` inteiro.
   const stableNews = useMemo(
-    () =>
-      filterByQuery(
-        (infinite.data?.pages[0]?.data ?? []) as PublicNews[],
-        searchQuery,
-      ),
-    [infinite.data, searchQuery],
+    () => filterByQuery((firstPage?.data ?? []) as PublicNews[], searchQuery),
+    [firstPage, searchQuery]
   )
 
   const sections = useMemo(
     () => selectHomeSections(allNews, stableNews),
-    [allNews, stableNews],
+    [allNews, stableNews]
   )
 
-  const loadedPages = infinite.data?.pages.length ?? 0
+  const loadedPages = pages?.length ?? 0
 
-  const value: NewsFeedContextValue = {
-    allNews,
-    sections,
-    fetchNextPage: () => infinite.fetchNextPage(),
-    hasNextPage: infinite.hasNextPage ?? false,
-    isFetchingNextPage: infinite.isFetchingNextPage,
-    isFetching: infinite.isFetching,
-    isLoading: infinite.isLoading,
-    isError: infinite.isError,
-    error: (infinite.error as Error | null) ?? null,
-    loadedPages,
-  }
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetching,
+    isLoading,
+    isError,
+    error,
+  } = infinite
+
+  const loadNextPage = useCallback(() => fetchNextPage(), [fetchNextPage])
+
+  const value = useMemo<NewsFeedContextValue>(
+    () => ({
+      allNews,
+      sections,
+      fetchNextPage: loadNextPage,
+      hasNextPage: hasNextPage ?? false,
+      isFetchingNextPage,
+      isFetching,
+      isLoading,
+      isError,
+      error: (error as Error | null) ?? null,
+      loadedPages,
+    }),
+    [
+      allNews,
+      sections,
+      loadNextPage,
+      hasNextPage,
+      isFetchingNextPage,
+      isFetching,
+      isLoading,
+      isError,
+      error,
+      loadedPages,
+    ]
+  )
 
   return <NewsFeedContext value={value}>{children}</NewsFeedContext>
 }

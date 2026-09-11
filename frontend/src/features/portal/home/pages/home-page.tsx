@@ -6,8 +6,6 @@ import { FeaturedGrid } from "../components/featured-grid"
 import { NewsSidebar } from "../components/news-sidebar"
 import { AdBanner } from "../components/ad-banner"
 import { HomePageSkeleton } from "../components/home-page-skeleton"
-import { usePortalCategories } from "../hooks/use-categories"
-import { useServeBanners } from "../hooks/use-serve-banners"
 import { Search, WifiOff, RefreshCw } from "lucide-react"
 import { SearchProvider, useSearch } from "../contexts/search-context"
 import { CategoryProvider } from "../contexts/category-context"
@@ -47,7 +45,8 @@ function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
             Nenhuma notícia encontrada
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Não encontramos resultados para &quot;{searchQuery}&quot;. Tente buscar por outros termos.
+            Não encontramos resultados para &quot;{searchQuery}&quot;. Tente
+            buscar por outros termos.
           </p>
           <button
             type="button"
@@ -64,24 +63,24 @@ function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
 
 function HomePageContent() {
   const queryClient = useQueryClient()
-  const { isLoading: categoriesLoading, isError: categoriesError } = usePortalCategories()
-  const { isLoading: bannersLoading, isError: bannersError } = useServeBanners()
   const { isLoading: newsLoading, allNews, isError: newsError } = useNewsFeed()
 
-  const isLoading = newsLoading || categoriesLoading || bannersLoading
-  const hasError = (categoriesError || bannersError || newsError)
+  // Categorias e banners não bloqueiam a home: cada um degrada no seu próprio
+  // espaço reservado (menu mínimo / moldura "Anuncie aqui"). Só a listagem de
+  // notícias justifica o skeleton — e, como a página 1 vem do SSR, o conteúdo
+  // real já chega no HTML inicial. Um erro ao buscar páginas seguintes não
+  // derruba o que já está na tela: o rodapé da lista mostra o retry.
+  const hasError = newsError && allNews.length === 0
 
   // Banner no meio do conteúdo só aparece com acervo razoavelmente cheio.
   const showMiddleBanner = allNews.length >= MIN_NEWS_FOR_MIDDLE_BANNER
 
-  if (isLoading && !hasError) {
-    return <HomePageSkeleton />
-  }
-
-  if (hasError) {
-    return (
-      <div className="min-h-screen">
-        <SiteHeader />
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      {newsLoading && !hasError ? (
+        <HomePageSkeleton />
+      ) : hasError ? (
         <main className="mx-auto max-w-7xl px-4 py-8">
           <div className="my-12 rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
             <WifiOff className="mx-auto size-12 text-muted-foreground/50" />
@@ -89,7 +88,8 @@ function HomePageContent() {
               Conexão indisponível
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.
+              Não foi possível conectar ao servidor. Verifique sua conexão com a
+              internet e tente novamente.
             </p>
             <button
               type="button"
@@ -101,14 +101,9 @@ function HomePageContent() {
             </button>
           </div>
         </main>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen">
-      <SiteHeader />
-      <MainSection showMiddleBanner={showMiddleBanner} />
+      ) : (
+        <MainSection showMiddleBanner={showMiddleBanner} />
+      )}
     </div>
   )
 }
