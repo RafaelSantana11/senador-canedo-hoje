@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useSyncExternalStore } from "react"
 import { GoogleAnalytics } from "@next/third-parties/google"
 import { Button } from "@/components/ui/button"
 import { isGaEnabled, updateConsent, GA_MEASUREMENT_ID } from "@/lib/gtag"
@@ -9,17 +9,36 @@ import { getConsent, setConsent, type ConsentChoice } from "@/lib/consent"
 // Script de Consent Mode v2 injetado ANTES do gtag carregar. Define o dataLayer
 // e o `gtag` global, e registra o consentimento padrão como 'denied', para que
 // o GA4 só crie cookies depois que o usuário aceitar (conformidade LGPD).
-const CONSENT_DEFAULT_SCRIPT = `window.dataLayer=window.dataLayer||[];function gtag(){window.dataLayer.push(arguments);}gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',personalization_storage:'denied',wait_for_update:500});`
+// `ads_data_redaction` remove identificadores de clique de anúncio das URLs.
+const CONSENT_DEFAULT_SCRIPT = `window.dataLayer=window.dataLayer||[];function gtag(){window.dataLayer.push(arguments);}gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',personalization_storage:'denied',wait_for_update:500});gtag('set','ads_data_redaction',true);`
+
+// NEXT_PUBLIC_GA_DEBUG=1 habilita o DebugView (usado em testes locais).
+const GA_DEBUG_MODE = process.env.NEXT_PUBLIC_GA_DEBUG === "1"
+
+// `true` somente depois da hidratação. O SSR não tem acesso ao cookie, então
+// sem esse gate o banner (já aceito) seria enviado no HTML a cada carregamento
+// e voltaria a piscar antes do React hidratar.
+const subscribe = () => () => {}
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false
+  )
+}
 
 export function AnalyticsProvider() {
+  const hydrated = useHydrated()
   const [enabled] = useState(() => isGaEnabled())
   const [consent, setConsentState] = useState<ConsentChoice | null>(() =>
-    getConsent()
+    typeof document === "undefined" ? null : getConsent()
   )
-  // O banner só aparece quando o GA está ativo e o usuário ainda não decidiu.
-  const visible = enabled && consent === null
+  // O banner só aparece quando o GA está ativo, o cliente hidratou e o
+  // usuário ainda não decidiu (cookie `ga_consent` ausente ou expirado).
+  const visible = enabled && hydrated && consent === null
 
-  // Se o visitante já aceitou anteriormente, aplica o consentimento de imediato.
+  // Se o visitante já aceitou anteriormente, libera só analytics_storage.
+  // Sinais de anúncio nunca são concedidos (coleta mínima).
   useEffect(() => {
     if (enabled && consent === "accepted") updateConsent("granted")
   }, [enabled, consent])
@@ -40,7 +59,7 @@ export function AnalyticsProvider() {
     <>
       {/* Consent Mode v2 default (denied). Deve vir antes do <GoogleAnalytics>. */}
       <script dangerouslySetInnerHTML={{ __html: CONSENT_DEFAULT_SCRIPT }} />
-      <GoogleAnalytics gaId={GA_MEASUREMENT_ID!} />
+      <GoogleAnalytics gaId={GA_MEASUREMENT_ID!} debugMode={GA_DEBUG_MODE} />
 
       {visible && (
         <div

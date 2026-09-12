@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { FadeInImage } from "@/components/common/fade-in-image"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { trackBannerClick } from "@/lib/gtag"
 import { useServeBanners } from "../hooks/use-serve-banners"
 import type { BannerPosition, PublicBannerItem } from "../types/banner"
 
@@ -67,13 +68,19 @@ export function AdBanner({
           <span className="mt-1 text-xs">Anuncie aqui</span>
         </div>
       ) : (
-        <BannerCarousel items={items} />
+        <BannerCarousel items={items} position={position} />
       )}
     </div>
   )
 }
 
-function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
+function BannerCarousel({
+  items,
+  position,
+}: {
+  items: PublicBannerItem[]
+  position: BannerPosition
+}) {
   const [index, setIndex] = useState(0)
 
   useEffect(() => {
@@ -109,6 +116,14 @@ function BannerCarousel({ items }: { items: PublicBannerItem[] }) {
       rel="noreferrer sponsored"
       aria-label={alt}
       className="relative block h-full w-full"
+      onClick={() =>
+        trackBannerClick({
+          id: item.image.id,
+          position,
+          name: alt,
+          linkUrl: item.linkUrl,
+        })
+      }
     >
       {img}
     </a>

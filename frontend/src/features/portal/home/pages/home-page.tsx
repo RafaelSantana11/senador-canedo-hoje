@@ -6,6 +6,7 @@ import { FeaturedGrid } from "../components/featured-grid"
 import { NewsSidebar } from "../components/news-sidebar"
 import { AdBanner } from "../components/ad-banner"
 import { HomePageSkeleton } from "../components/home-page-skeleton"
+import { HomeScrollTracker } from "../components/home-scroll-tracker"
 import { Search, WifiOff, RefreshCw } from "lucide-react"
 import { SearchProvider, useSearch } from "../contexts/search-context"
 import { CategoryProvider } from "../contexts/category-context"
@@ -77,6 +78,7 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen">
+      <HomeScrollTracker />
       <SiteHeader />
       {newsLoading && !hasError ? (
         <HomePageSkeleton />

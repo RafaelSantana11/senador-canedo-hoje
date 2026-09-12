@@ -66,38 +66,17 @@ export function event(action: string, params: GtagParams = {}): void {
   }
 }
 
-// Dispara o evento ga4_page_view manualmente a cada troca de rota client-side.
-// O GoogleAnalytics via Enhanced Measurement já rastreia pageviews por
-// mudanças no history (browser). Este helper é um fallback caso você prefira
-// enviar manualmente (nesse caso, desative o "Page changes based on browser
-// history events" no GA para não duplicar).
-export function pageview(path: string, title?: string): void {
-  event("page_view", { page_path: path, page_title: title })
-}
-
 // ---------------------------------------------------------------------------
-// Consentimento (Consent Mode v2 / LGPD).
+// Consentimento (Consent Mode v2 / LGPD) — coleta mínima.
 // ---------------------------------------------------------------------------
-// Parâmetros do Consent Mode v2 — os mesmos usados no script de default.
-export const CONSENT_DEFAULT = {
-  ad_storage: "denied" as ConsentState,
-  ad_user_data: "denied" as ConsentState,
-  ad_personalization: "denied" as ConsentState,
-  analytics_storage: "denied" as ConsentState,
-}
-
+// Apenas `analytics_storage` é liberado, e só depois do "Aceitar". Os sinais
+// de anúncio (ad_storage, ad_user_data, ad_personalization) permanecem
+// negados para sempre: o site não faz remarketing nem personalização de ads.
+// O pageview é automático via Enhanced Measurement (mudanças de history),
+// então não há helper manual — evita duplicar dados.
 export function updateConsent(state: ConsentState): void {
   if (typeof window === "undefined") return
-  const args: unknown[] = [
-    "consent",
-    "update",
-    {
-      ad_storage: state,
-      ad_user_data: state,
-      ad_personalization: state,
-      analytics_storage: state,
-    },
-  ]
+  const args: unknown[] = ["consent", "update", { analytics_storage: state }]
   const gtag = window.gtag
   if (typeof gtag === "function") {
     gtag(...(args as Parameters<NonNullable<Window["gtag"]>>))
@@ -107,49 +86,19 @@ export function updateConsent(state: ConsentState): void {
 }
 
 // ===========================================================================
-// Eventos customizados para um site de notícias (GA4).
-// As chamadas estão aqui prontas; use-as onde fizer sentido na UI
-// (ex.: componente da matéria, botão de share, formulário, etc.).
+// Eventos customizados (GA4).
 // ===========================================================================
 
 /**
- * view_article — ao abrir uma matéria.
- * Exemplo de uso (num componente client da página da matéria):
- *   event('view_article', {
- *     article_title: article.title,
- *     article_category: article.category,
- *     article_slug,
- *   })
+ * scroll_depth — quanto da página foi rolada (25/50/75/100%).
+ * Usado apenas na home; a página da matéria não envia esse evento.
  */
-export function viewArticle(params: {
-  title: string
-  category: string
-  slug?: string
-  author?: string
-}): void {
-  event("view_article", {
-    article_title: params.title,
-    article_category: params.category,
-    article_slug: params.slug,
-    article_author: params.author,
-  })
-}
-
-/**
- * scroll_depth — progresso de leitura (25/50/75/100%).
- * Exemplo de uso: um handler de scroll que detecta os marcos e chama:
- *   trackReadingProgress(percent, { title, category })
- */
-export function trackReadingProgress(
-  percent: 25 | 50 | 75 | 100,
-  params: { title?: string; category?: string } = {}
-): void {
-  event("scroll_depth", { percent_depth: percent, ...params })
+export function trackScrollDepth(percent: 25 | 50 | 75 | 100): void {
+  event("scroll_depth", { percent_depth: percent })
 }
 
 /**
  * share — quando o usuário clica em compartilhar uma matéria.
- * Exemplo: no onClick do botão "Compartilhar": trackShare({ title })
  */
 export function trackShare(params: {
   title?: string
@@ -164,21 +113,21 @@ export function trackShare(params: {
 }
 
 /**
- * newsletter_signup — quando o usuário se inscreve na newsletter.
- * Exemplo: chamar após o submit bem-sucedido do formulário.
+ * banner_click — clique em um banner de publicidade.
+ * Identifica o criativo (banner_id), a posição na página (banner_position),
+ * o nome acessível (banner_name) e o destino (banner_link_url). Nenhum dado
+ * pessoal é enviado. Valores são truncados no limite de 100 chars do GA4.
  */
-export function trackNewsletterSignup(params?: {
-  location?: string
-  method?: string
+export function trackBannerClick(params: {
+  id: string
+  position: string
+  name?: string | null
+  linkUrl?: string | null
 }): void {
-  event("newsletter_signup", params)
-}
-
-/**
- * outbound_click — cliques em links externos dentro da matéria.
- * Exemplo de uso (handler genérico de clique, ou um wrapper <a>):
- *   trackOutboundClick(href, { title })
- */
-export function trackOutboundClick(href: string, params?: GtagParams): void {
-  event("outbound_click", { outbound_url: href, ...params })
+  event("banner_click", {
+    banner_id: params.id,
+    banner_position: params.position,
+    banner_name: params.name?.slice(0, 100),
+    banner_link_url: params.linkUrl?.slice(0, 100),
+  })
 }

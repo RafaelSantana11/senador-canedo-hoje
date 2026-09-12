@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useRef } from "react"
+import { Fragment } from "react"
 import {
   AlertCircle,
   Calendar,
@@ -10,12 +10,7 @@ import {
   User,
 } from "lucide-react"
 import { toast } from "sonner"
-import {
-  trackOutboundClick,
-  trackReadingProgress,
-  trackShare,
-  viewArticle,
-} from "@/lib/gtag"
+import { trackShare } from "@/lib/gtag"
 import Link from "next/link"
 import {
   renderMarkdown,
@@ -110,52 +105,10 @@ export function ArticlePage({
   const adPositions = inContentAdPositions(blocks.length)
 
   // -----------------------------------------------------------------
-  // Eventos de Analytics (GA4) da matéria.
-  // As funções são no-op seguras quando o GA está desativado ou o
-  // usuário não consentiu, então podem ficar ativas. Remova os blocos
-  // que não fizerem sentido editorialmente.
+  // Analytics (GA4) da matéria: apenas o evento de compartilhamento.
+  // O scroll_depth é rastreado somente na home (HomeScrollTracker).
+  // As funções são no-op seguras quando o GA está desativado.
   // -----------------------------------------------------------------
-  const bodyRef = useRef<HTMLDivElement>(null)
-  const reportedDepths = useRef<Set<number>>(new Set())
-
-  // view_article — ao abrir a matéria.
-  useEffect(() => {
-    if (preview) return
-    viewArticle({ title, category, author })
-  }, [preview, title, category, author])
-
-  // scroll_depth — 25/50/75/100% de leitura.
-  useEffect(() => {
-    if (preview || !bodyRef.current) return
-    const thresholds: [25, 50, 75, 100] = [25, 50, 75, 100]
-    const onScroll = () => {
-      const el = bodyRef.current
-      if (!el) return
-      const rect = el.getBoundingClientRect()
-      const total = rect.height
-      const visible = window.innerHeight - rect.top
-      const percent = Math.min(100, Math.round((visible / total) * 100))
-      for (const t of thresholds) {
-        if (percent >= t && !reportedDepths.current.has(t)) {
-          reportedDepths.current.add(t)
-          trackReadingProgress(t, { title, category })
-        }
-      }
-    }
-    onScroll()
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [preview, title, category])
-
-  // outbound_click — cliques em links externos dentro do corpo da matéria.
-  const handleBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const anchor = (e.target as HTMLElement).closest("a")
-    if (!anchor) return
-    const href = anchor.getAttribute("href") ?? ""
-    if (/^https?:\/\//.test(href) && new URL(href).hostname !== location.hostname) {
-      trackOutboundClick(href, { content_title: title })
-    }
-  }
 
   const shareUrl =
     typeof window !== "undefined" ? window.location.href : ""
@@ -350,11 +303,7 @@ export function ArticlePage({
         )}
 
         {/* Body */}
-        <div
-          ref={bodyRef}
-          onClick={handleBodyClick}
-          className="mt-8 text-base leading-relaxed text-foreground md:text-lg"
-        >
+        <div className="mt-8 text-base leading-relaxed text-foreground md:text-lg">
           {blocks.length === 0 && (
             <p className="text-muted-foreground">
               O conteúdo da matéria aparecerá aqui.
