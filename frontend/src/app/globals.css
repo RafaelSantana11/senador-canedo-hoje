@@ -266,8 +266,23 @@
    `!important` porque o embed.js do Instagram injeta `border-radius` inline. */
 .instagram-embed iframe,
 .facebook-embed iframe {
-  border-radius: 6px !important;
+  border-radius: 4px !important;
   overflow: hidden;
+}
+
+/* O SDK do Facebook envolve o iframe em `.fb-post`/`.fb-video`; o clip no
+   wrapper garante os cantos arredondados mesmo se o iframe vier quadrado.
+   O link de fallback só aparece quando o SDK não renderiza o post. */
+.facebook-embed .fb-post,
+.facebook-embed .fb-video {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* O link de fallback só aparece quando o SDK não renderiza o post; a classe
+   `fb-rendered` é aplicada via JS quando o widget do Facebook entra no DOM. */
+.facebook-embed.fb-rendered .fb-fallback {
+  display: none;
 }
 
 .editor-area .instagram-embed,

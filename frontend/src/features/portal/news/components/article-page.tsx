@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect } from "react"
+import { Fragment, useEffect, useRef } from "react"
 import {
   AlertCircle,
   Calendar,
@@ -62,10 +62,14 @@ function readingTime(content: string): number {
 
 const navCategories = ["Política", "Economia", "Esportes"]
 
-/* ─── Instagram embeds ───────────────────────────────────────────── */
+/* ─── Instagram / Facebook embeds ────────────────────────────────── */
 
 type InstagramWindow = Window & {
   instgrm?: { Embeds?: { process?: () => void } }
+}
+
+type FacebookWindow = Window & {
+  FB?: { XFBML?: { parse?: (element?: Element) => void } }
 }
 
 let instagramScriptPromise: Promise<void> | null = null
@@ -90,6 +94,56 @@ function loadInstagramScript(): Promise<void> {
     })
   }
   return instagramScriptPromise
+}
+
+let facebookScriptPromise: Promise<void> | null = null
+
+/**
+ * Carrega o SDK do Facebook (XFBML) uma única vez por sessão. Versões antigas
+ * (v21 e anteriores) param de renderizar sem aviso — a v25.0 é a atual; trocar
+ * quando for descontinuada (a janela de suporte do Facebook é de ~2 anos).
+ */
+function loadFacebookScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve()
+  if ((window as FacebookWindow).FB?.XFBML?.parse) return Promise.resolve()
+
+  if (!document.getElementById("fb-root")) {
+    const root = document.createElement("div")
+    root.id = "fb-root"
+    document.body.appendChild(root)
+  }
+
+  if (!facebookScriptPromise) {
+    facebookScriptPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script")
+      // Sem `xfbml=1` de propósito: o auto-parse do SDK dispara junto com o
+      // nosso `XFBML.parse()` e marca o widget sem renderizar (race). Aqui só
+      // o nosso parse, depois do SDK pronto, processa os posts.
+      script.src = "https://connect.facebook.net/pt_BR/sdk.js#version=v25.0"
+      script.async = true
+      script.onload = () => {
+        // O bootstrap carrega o bundle de forma assíncrona; espera o XFBML
+        // existir antes de resolver (senão o parse vira no-op).
+        const startedAt = Date.now()
+        const check = () => {
+          if ((window as FacebookWindow).FB?.XFBML?.parse) {
+            // pequena folga para o init interno do SDK terminar
+            window.setTimeout(resolve, 150)
+            return
+          }
+          if (Date.now() - startedAt > 8000) return resolve()
+          window.setTimeout(check, 50)
+        }
+        check()
+      }
+      script.onerror = () => {
+        facebookScriptPromise = null
+        reject(new Error("Falha ao carregar o Facebook"))
+      }
+      document.body.appendChild(script)
+    })
+  }
+  return facebookScriptPromise
 }
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -137,26 +191,92 @@ export function ArticlePage({
     coverCredit,
   } = article
 
+  const rootRef = useRef<HTMLDivElement>(null)
+
   const blocks = splitMarkdownBlocks(content)
   const adPositions = inContentAdPositions(blocks.length)
 
-  // Instagram: transforma os blockquotes em posts reais depois da montagem
-  // (o embed.js injeta o iframe no lugar do fallback). O Facebook usa iframe
-  // direto do plugin e não precisa de script.
+  // Instagram/Facebook: transforma os embeds em posts reais depois da
+  // montagem. O Instagram injeta um iframe próprio; o SDK do Facebook faz o
+  // parse do XFBML e ainda ajusta a altura do post automaticamente.
   useEffect(() => {
-    if (!content.includes("@[instagram]")) return
+    const hasInstagram = content.includes("@[instagram]")
+    const hasFacebook = content.includes("@[facebook]")
+    if (!hasInstagram && !hasFacebook) return
     let cancelled = false
-    loadInstagramScript()
-      .then(() => {
-        if (!cancelled) {
-          ;(window as InstagramWindow).instgrm?.Embeds?.process?.()
-        }
-      })
-      .catch(() => {
-        // Sem o script, o link "Ver este post no Instagram" continua visível.
-      })
+    let intersectionObserver: IntersectionObserver | null = null
+    let cleanupFacebook: (() => void) | null = null
+
+    if (hasInstagram) {
+      loadInstagramScript()
+        .then(() => {
+          if (!cancelled) {
+            ;(window as InstagramWindow).instgrm?.Embeds?.process?.()
+          }
+        })
+        .catch(() => {
+          // Sem o script, o link "Ver este post no Instagram" continua visível.
+        })
+    }
+
+    if (hasFacebook) {
+      let mutationObserver: MutationObserver | null = null
+
+      // Esconde o link de fallback assim que o widget do SDK entra no DOM.
+      const markRendered = (root: HTMLElement) => {
+        root.querySelectorAll(".facebook-embed").forEach((embed) => {
+          if (embed.querySelector(".fb_iframe_widget")) {
+            embed.classList.add("fb-rendered")
+          }
+        })
+      }
+
+      const parse = () => {
+        loadFacebookScript()
+          .then(() => {
+            if (cancelled) return
+            const target = rootRef.current
+            if (!target) return
+            ;(window as FacebookWindow).FB?.XFBML?.parse?.(target)
+            markRendered(target)
+            mutationObserver = new MutationObserver(() => markRendered(target))
+            mutationObserver.observe(target, { childList: true, subtree: true })
+          })
+          .catch(() => {
+            // Sem o script, o link "Ver este post no Facebook" fica visível.
+          })
+      }
+
+      // O SDK marca o widget como "processado" mesmo com o container oculto
+      // (aba de preview fechada) e nunca tenta de novo — por isso o script só
+      // é carregado quando o conteúdo está visível.
+      const target = rootRef.current
+      const isHidden = target !== null && target.offsetParent === null
+      if (!isHidden || typeof IntersectionObserver === "undefined") {
+        parse()
+      } else {
+        intersectionObserver = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) return
+            intersectionObserver?.disconnect()
+            intersectionObserver = null
+            parse()
+          },
+          { rootMargin: "200px" }
+        )
+        intersectionObserver.observe(target)
+      }
+
+      cleanupFacebook = () => {
+        mutationObserver?.disconnect()
+        mutationObserver = null
+      }
+    }
+
     return () => {
       cancelled = true
+      intersectionObserver?.disconnect()
+      cleanupFacebook?.()
     }
   }, [content])
 
@@ -192,7 +312,10 @@ export function ArticlePage({
   }
 
   return (
-    <div className={preview ? "bg-background" : "min-h-screen bg-background"}>
+    <div
+      ref={rootRef}
+      className={preview ? "bg-background" : "min-h-screen bg-background"}
+    >
       {!preview && (
         <header className="border-b border-border bg-background">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">

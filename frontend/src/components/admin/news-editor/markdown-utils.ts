@@ -20,6 +20,9 @@ const INSTAGRAM_URL_RE =
 
 const FACEBOOK_HOST_RE = /^(?:www\.|m\.|web\.)?facebook\.com$/i
 
+/** Links curtos de compartilhamento (`/share/p/...`), que exigem resolução. */
+const FACEBOOK_SHARE_PATH_RE = /^\/share\/[a-z0-9]+\/[A-Za-z0-9_-]+/i
+
 /** Parâmetros de rastreio que não mudam o post — removidos do link salvo. */
 const FACEBOOK_TRACKING_PARAMS = [
   "mibextid",
@@ -85,7 +88,8 @@ export function parseFacebookUrl(raw: string): string | null {
   const isContent =
     /\/(posts|videos|photos)\//.test(path) ||
     /\/(permalink\.php|story\.php|photo\.php|photo|watch)$/.test(path) ||
-    /^\/reel\/\d+/.test(path)
+    /^\/reel\/\d+/.test(path) ||
+    FACEBOOK_SHARE_PATH_RE.test(path)
   if (!isShort && !isContent) return null
 
   // `/pagina/posts/algum-slug/123456` → `/pagina/posts/123456`: o plugin do
@@ -105,6 +109,22 @@ export function parseFacebookUrl(raw: string): string | null {
 /** Bloco de markdown que representa um post incorporado. */
 export function embedDirective(kind: EmbedKind, url: string): string {
   return `@[${kind}](${url})`
+}
+
+/**
+ * `true` para links de compartilhamento (`facebook.com/share/p/...`), que
+ * precisam ser resolvidos para o permalink antes de virar embed.
+ */
+export function isFacebookShareUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw.trim())
+    return (
+      FACEBOOK_HOST_RE.test(url.hostname.toLowerCase()) &&
+      FACEBOOK_SHARE_PATH_RE.test(url.pathname)
+    )
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -142,10 +162,10 @@ function instagramEmbedHtml(url: string): string {
 }
 
 /**
- * Iframe oficial do plugin do Facebook (não exige SDK nem appId; o SDK
- * falhava sem `appId` em alguns ambientes). A altura é fixa porque o plugin
- * não comunica o próprio tamanho sem o SDK — posts longos rolam dentro do
- * iframe em vez de serem cortados.
+ * Marcação oficial do Facebook (XFBML). O SDK mede o post e redimensiona o
+ * iframe sozinho. O `.fb-post` precisa ficar **vazio** — o SDK v25 não
+ * processa o widget quando há um blockquote de fallback dentro dele — então o
+ * link de fallback fica ao lado e o CSS o esconde quando o post renderiza.
  */
 function facebookEmbedHtml(url: string): string {
   const isVideo =
@@ -153,20 +173,12 @@ function facebookEmbedHtml(url: string): string {
     url.includes("/videos/") ||
     url.includes("/watch") ||
     url.includes("/reel/")
-  const plugin = isVideo ? "video.php" : "post.php"
-  const height = isVideo ? 500 : 700
-  const src =
-    `https://www.facebook.com/plugins/${plugin}?href=` +
-    `${encodeURIComponent(url)}&show_text=true&width=552`
-
+  const pluginClass = isVideo ? "fb-video" : "fb-post"
   return (
-    `<div class="facebook-embed my-6 flex justify-center" data-facebook-url="${url}">` +
-    `<iframe src="${src}" width="552" height="${height}"` +
-    ` style="border:none;max-width:100%;border-radius:12px;background:#fff"` +
-    ` frameborder="0" allowfullscreen="true" loading="lazy"` +
-    ` allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"` +
-    ` title="Post do Facebook"></iframe>` +
-    `</div>`
+    `<div class="facebook-embed my-6 flex flex-col items-center" data-facebook-url="${url}">` +
+    `<div class="${pluginClass}" data-href="${url}" data-width="552" data-show-text="true"></div>` +
+    `<a href="${url}" target="_blank" rel="noopener noreferrer" class="fb-fallback rounded-xl border border-border px-4 py-3 text-sm">` +
+    `Ver este post no Facebook</a></div>`
   )
 }
 

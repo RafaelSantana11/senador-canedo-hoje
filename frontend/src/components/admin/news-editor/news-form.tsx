@@ -15,12 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { assetPath, cn } from "@/lib/utils"
 import { FormatterToolbar, EMPTY_FORMATS, type ActiveFormats } from "./formatter-toolbar"
 import { ImageUploader } from "./image-uploader"
 import {
   embedPlaceholderHtml,
   htmlToMarkdown,
+  isFacebookShareUrl,
   parseFacebookUrl,
   parseInstagramUrl,
   renderMarkdown,
@@ -281,6 +282,28 @@ export function NewsForm({
     insertHtml(embedPlaceholderHtml(kind, url) + "<p><br></p>")
   }
 
+  /**
+   * Normaliza links do Facebook. Links de compartilhamento
+   * (`facebook.com/share/p/...`) não são aceitos pelo plugin de embed, então
+   * são resolvidos para o permalink canônico pelo route handler do Next.
+   */
+  async function resolveFacebookPost(rawUrl: string): Promise<string | null> {
+    const direct = parseFacebookUrl(rawUrl)
+    if (!direct) return null
+    if (!isFacebookShareUrl(direct)) return direct
+
+    try {
+      const response = await fetch(
+        `${assetPath("/api/facebook/resolve")}?url=${encodeURIComponent(direct)}`
+      )
+      if (!response.ok) return null
+      const data = (await response.json()) as { url?: string }
+      return data.url ? parseFacebookUrl(data.url) : null
+    } catch {
+      return null
+    }
+  }
+
   function insertInstagram() {
     void (async () => {
       const url = await promptText({
@@ -319,11 +342,12 @@ export function NewsForm({
       })
       if (!url) return
 
-      const canonical = parseFacebookUrl(url)
+      const canonical = await resolveFacebookPost(url)
       if (!canonical) {
         alert(
-          "Link do Facebook inválido. Use o endereço de um post, vídeo ou Reel " +
-            "(ex.: https://www.facebook.com/pagina/posts/123...)."
+          "Não foi possível importar este link do Facebook. Confira se é um post, " +
+            "vídeo ou Reel e tente de novo; se continuar, abra o post e copie o " +
+            "endereço direto (ex.: https://www.facebook.com/pagina/posts/123...)."
         )
         return
       }
@@ -410,10 +434,20 @@ export function NewsForm({
         insertEmbed("instagram", instagramUrl)
         return
       }
-      const facebookUrl = parseFacebookUrl(text)
-      if (facebookUrl) {
+      // Links de share do Facebook precisam ser resolvidos antes de inserir.
+      if (parseFacebookUrl(text)) {
         e.preventDefault()
-        insertEmbed("facebook", facebookUrl)
+        void (async () => {
+          const canonical = await resolveFacebookPost(text)
+          if (canonical) {
+            insertEmbed("facebook", canonical)
+          } else {
+            alert(
+              "Não foi possível importar este link do Facebook. Se for um link de " +
+                "compartilhamento, abra o post e copie o endereço direto."
+            )
+          }
+        })()
         return
       }
     }
