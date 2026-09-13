@@ -18,7 +18,14 @@ import {
 import { cn } from "@/lib/utils"
 import { FormatterToolbar, EMPTY_FORMATS, type ActiveFormats } from "./formatter-toolbar"
 import { ImageUploader } from "./image-uploader"
-import { htmlToMarkdown, renderMarkdown } from "./markdown-utils"
+import {
+  embedPlaceholderHtml,
+  htmlToMarkdown,
+  parseFacebookUrl,
+  parseInstagramUrl,
+  renderMarkdown,
+  type EmbedKind,
+} from "./markdown-utils"
 import { usePromptText } from "./prompt-dialog-provider"
 
 import {
@@ -147,11 +154,14 @@ export function NewsForm({
   /* ─── Rich text editor (markdown under the hood) ────────────────── */
 
   // Sync external `content` (markdown) into the editor as rendered HTML.
+  // No editor, posts do Instagram viram um cartão inerte; o embed real só é
+  // montado na pré-visualização/página pública.
   useEffect(() => {
     if (lastContentRef.current === content) return
     lastContentRef.current = content
     if (editorRef.current) {
-      editorRef.current.innerHTML = renderMarkdown(content) || ""
+      editorRef.current.innerHTML =
+        renderMarkdown(content, { embeds: "placeholder" }) || ""
     }
   }, [content])
 
@@ -266,6 +276,73 @@ export function NewsForm({
     })()
   }
 
+  /** Insere o cartão do embed + um parágrafo depois, para o cursor continuar. */
+  function insertEmbed(kind: EmbedKind, url: string) {
+    insertHtml(embedPlaceholderHtml(kind, url) + "<p><br></p>")
+  }
+
+  function insertInstagram() {
+    void (async () => {
+      const url = await promptText({
+        title: "Inserir post do Instagram",
+        description:
+          "Cole o link de um post, Reel ou IGTV. Ele será incorporado na matéria.",
+        label: "Link do post",
+        placeholder: "https://www.instagram.com/p/...",
+        defaultValue: "https://www.instagram.com/",
+        confirmLabel: "Inserir post",
+      })
+      if (!url) return
+
+      const canonical = parseInstagramUrl(url)
+      if (!canonical) {
+        alert(
+          "Link do Instagram inválido. Use o endereço de um post, Reel ou IGTV " +
+            "(ex.: https://www.instagram.com/p/ABC123/)."
+        )
+        return
+      }
+      insertEmbed("instagram", canonical)
+    })()
+  }
+
+  function insertFacebook() {
+    void (async () => {
+      const url = await promptText({
+        title: "Inserir post do Facebook",
+        description:
+          "Cole o link de um post, vídeo ou Reel do Facebook. Ele será incorporado na matéria.",
+        label: "Link do post",
+        placeholder: "https://www.facebook.com/.../posts/...",
+        defaultValue: "https://www.facebook.com/",
+        confirmLabel: "Inserir post",
+      })
+      if (!url) return
+
+      const canonical = parseFacebookUrl(url)
+      if (!canonical) {
+        alert(
+          "Link do Facebook inválido. Use o endereço de um post, vídeo ou Reel " +
+            "(ex.: https://www.facebook.com/pagina/posts/123...)."
+        )
+        return
+      }
+      insertEmbed("facebook", canonical)
+    })()
+  }
+
+  /** Remove o cartão de embed ao clicar no botão "×" (delegação de evento). */
+  function handleEditorClick(e: React.MouseEvent) {
+    const target = e.target as HTMLElement
+    const removeButton = target.closest(".embed-remove")
+    if (!removeButton) return
+    e.preventDefault()
+    const embed = removeButton.closest(".instagram-embed, .facebook-embed")
+    if (!embed) return
+    embed.remove()
+    syncFromEditor()
+  }
+
   function insertHorizontalRule() {
     insertHtml("<hr />")
   }
@@ -324,6 +401,23 @@ export function NewsForm({
   /* ─── Clean paste handler ───────────────────────────────────────── */
 
   function handlePaste(e: React.ClipboardEvent) {
+    // Colar o link de um post do Instagram/Facebook vira embed automaticamente.
+    const text = e.clipboardData.getData("text/plain").trim()
+    if (text && !text.includes(" ")) {
+      const instagramUrl = parseInstagramUrl(text)
+      if (instagramUrl) {
+        e.preventDefault()
+        insertEmbed("instagram", instagramUrl)
+        return
+      }
+      const facebookUrl = parseFacebookUrl(text)
+      if (facebookUrl) {
+        e.preventDefault()
+        insertEmbed("facebook", facebookUrl)
+        return
+      }
+    }
+
     const html = e.clipboardData.getData("text/html")
     if (!html) return // let browser handle plain text paste
 
@@ -676,6 +770,8 @@ export function NewsForm({
           onOl={() => exec("insertOrderedList")}
           onLink={insertLink}
           onImage={insertImage}
+          onInstagram={insertInstagram}
+          onFacebook={insertFacebook}
           onUploadImage={insertUploadedImage}
           onCode={handleCode}
           onHr={insertHorizontalRule}
@@ -714,6 +810,7 @@ export function NewsForm({
           }}
           onKeyUp={queryActiveFormats}
           onMouseUp={queryActiveFormats}
+          onClick={handleEditorClick}
           onBlur={() => {
             saveSelection()
             syncFromEditor()

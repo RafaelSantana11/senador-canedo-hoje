@@ -66,7 +66,10 @@ export default function NewNewsPage() {
 
   const { data: categoriesData } = useCategories()
   const categories = useMemo(() => categoriesData?.data ?? [], [categoriesData])
-  const categoryNames = useMemo(() => categories.map((c) => c.name), [categories])
+  const categoryNames = useMemo(
+    () => categories.map((c) => c.name),
+    [categories]
+  )
 
   const { data: tagsData } = useTags()
   const tags = useMemo(() => tagsData?.data ?? [], [tagsData])
@@ -118,25 +121,39 @@ function NewsEditor({
   // Em edição o slug existente é preservado como valor manual.
   const [slugInput, setSlugInput] = useState<string | null>(news?.slug ?? null)
   const slug = slugInput ?? slugify(title)
-  const [category, setCategory] = useState(news?.category.name ?? categoryNames[0] ?? "")
+  const [category, setCategory] = useState(
+    news?.category.name ?? categoryNames[0] ?? ""
+  )
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
     news?.tags ? news.tags.map((t) => t.id) : []
   )
-  const [position, setPosition] = useState<NewsPosition>(news ? readPosition(news.config) : "normal")
-  const [positionOrder, setPositionOrder] = useState<number>(news ? readPositionOrder(news.config) : 0)
+  const [position, setPosition] = useState<NewsPosition>(
+    news ? readPosition(news.config) : "normal"
+  )
+  const [positionOrder, setPositionOrder] = useState<number>(
+    news ? readPositionOrder(news.config) : 0
+  )
   const [author] = useState(news?.author.name ?? "Redação")
   const [image, setImage] = useState(news?.cover?.path ?? "")
   const [coverId] = useState<string | null>(news?.cover?.id ?? null)
-  const [coverCaption, setCoverCaption] = useState(news ? readCoverCaption(news.config) : "")
-  const [coverCredit, setCoverCredit] = useState(news ? readCoverCredit(news.config) : "")
-  const [config] = useState<Record<string, unknown> | null>(news?.config ?? null)
+  const [coverCaption, setCoverCaption] = useState(
+    news ? readCoverCaption(news.config) : ""
+  )
+  const [coverCredit, setCoverCredit] = useState(
+    news ? readCoverCredit(news.config) : ""
+  )
+  const [config] = useState<Record<string, unknown> | null>(
+    news?.config ?? null
+  )
   const [urgent, setUrgent] = useState(news ? readUrgent(news.config) : false)
   const [content, setContent] = useState(news?.body ?? "")
   const [publishedAt] = useState(news?.publishedAt ?? news?.createdAt ?? "")
   const [previewTab, setPreviewTab] = useState("card")
   const [expanded, setExpanded] = useState(false)
   const [unpublishConfirm, setUnpublishConfirm] = useState(false)
-  const [publishChecklist, setPublishChecklist] = useState<string[] | null>(null)
+  const [publishChecklist, setPublishChecklist] = useState<string[] | null>(
+    null
+  )
 
   function handleSlugChange(value: string) {
     setSlugInput(value.trim().length > 0 ? value : null)
@@ -228,7 +245,8 @@ function NewsEditor({
   function missingPublishItems(): string[] {
     const missing: string[] = []
     if (!image) missing.push("Imagem de capa")
-    if (!summary.trim()) missing.push("Subtítulo / linha fina (seria gerado automaticamente)")
+    if (!summary.trim())
+      missing.push("Subtítulo / linha fina (seria gerado automaticamente)")
     if (selectedTagIds.length === 0) missing.push("Tags / palavras-chave")
     return missing
   }
@@ -319,7 +337,7 @@ function NewsEditor({
   }
 
   return (
-    <div className="p-6 lg:p-10">
+    <div className="p-4 lg:p-6">
       {/* ─── Breadcrumb ─────────────────────────────────────── */}
       <nav className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
         <button
@@ -509,7 +527,7 @@ function NewsEditor({
                 setUnpublishConfirm(false)
                 void saveDraft(true)
               }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
             >
               Retirar do ar
             </AlertDialogAction>
@@ -524,7 +542,9 @@ function NewsEditor({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Publicar sem completar a matéria?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Publicar sem completar a matéria?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               Os itens abaixo ainda não foram preenchidos:
             </AlertDialogDescription>

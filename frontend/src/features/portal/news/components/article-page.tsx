@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment } from "react"
+import { Fragment, useEffect } from "react"
 import {
   AlertCircle,
   Calendar,
@@ -62,6 +62,36 @@ function readingTime(content: string): number {
 
 const navCategories = ["Política", "Economia", "Esportes"]
 
+/* ─── Instagram embeds ───────────────────────────────────────────── */
+
+type InstagramWindow = Window & {
+  instgrm?: { Embeds?: { process?: () => void } }
+}
+
+let instagramScriptPromise: Promise<void> | null = null
+
+/** Carrega o embed.js do Instagram uma única vez por sessão. */
+function loadInstagramScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve()
+  if ((window as InstagramWindow).instgrm?.Embeds?.process) {
+    return Promise.resolve()
+  }
+  if (!instagramScriptPromise) {
+    instagramScriptPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script")
+      script.src = "https://www.instagram.com/embed.js"
+      script.async = true
+      script.onload = () => resolve()
+      script.onerror = () => {
+        instagramScriptPromise = null
+        reject(new Error("Falha ao carregar o Instagram"))
+      }
+      document.body.appendChild(script)
+    })
+  }
+  return instagramScriptPromise
+}
+
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -109,6 +139,26 @@ export function ArticlePage({
 
   const blocks = splitMarkdownBlocks(content)
   const adPositions = inContentAdPositions(blocks.length)
+
+  // Instagram: transforma os blockquotes em posts reais depois da montagem
+  // (o embed.js injeta o iframe no lugar do fallback). O Facebook usa iframe
+  // direto do plugin e não precisa de script.
+  useEffect(() => {
+    if (!content.includes("@[instagram]")) return
+    let cancelled = false
+    loadInstagramScript()
+      .then(() => {
+        if (!cancelled) {
+          ;(window as InstagramWindow).instgrm?.Embeds?.process?.()
+        }
+      })
+      .catch(() => {
+        // Sem o script, o link "Ver este post no Instagram" continua visível.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [content])
 
   // -----------------------------------------------------------------
   // Analytics (GA4) da matéria: apenas o evento de compartilhamento.

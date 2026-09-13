@@ -79,6 +79,8 @@ interface FormatterToolbarProps {
   onOl: () => void
   onLink: () => void
   onImage: () => void
+  onInstagram: () => void
+  onFacebook: () => void
   onUploadImage: (file: File) => void
   onCode: () => void
   onHr: () => void
@@ -123,6 +125,44 @@ const HIGHLIGHT_COLORS = [
   { label: "Vermelho claro", value: "#fecaca" },
   { label: "Sem destaque", value: "transparent" },
 ]
+
+/* ─── Brand icons (lucide removed brand icons) ───────────────────── */
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  )
+}
+
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    </svg>
+  )
+}
 
 /* ─── Small reusable toolbar button ──────────────────────────────── */
 
@@ -500,6 +540,15 @@ export function FormatterToolbar(props: FormatterToolbarProps) {
           </ToolbarButton>
           <ToolbarButton onClick={props.onImage} label="Imagem por URL">
             <ImageIcon className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={props.onInstagram}
+            label="Post do Instagram"
+          >
+            <InstagramIcon className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={props.onFacebook} label="Post do Facebook">
+            <FacebookIcon className="h-4 w-4" />
           </ToolbarButton>
 
           <input
