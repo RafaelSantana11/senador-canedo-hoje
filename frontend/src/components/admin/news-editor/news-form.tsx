@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -20,7 +21,13 @@ import { ImageUploader } from "./image-uploader"
 import { htmlToMarkdown, renderMarkdown } from "./markdown-utils"
 import { usePromptText } from "./prompt-dialog-provider"
 
-import { type NewsPosition } from "@/features/admin/news/types/news"
+import {
+  isValidSlug,
+  NEWS_SLUG_MAX,
+  NEWS_SUMMARY_MAX,
+  NEWS_TITLE_MAX,
+  type NewsPosition,
+} from "@/features/admin/news/types/news"
 import { uploadContentImage } from "@/features/admin/news/services/files-service"
 
 function escapeAttr(s: string) {
@@ -40,6 +47,10 @@ export type NewsFormTag = {
 interface NewsFormProps {
   title: string
   setTitle: (val: string) => void
+  summary: string
+  setSummary: (val: string) => void
+  slug: string
+  setSlug: (val: string) => void
   category: string
   setCategory: (val: string) => void
   categories: string[]
@@ -52,6 +63,10 @@ interface NewsFormProps {
   setPositionOrder?: (val: number) => void
   image: string
   setImage: (val: string) => void
+  coverCaption: string
+  setCoverCaption: (val: string) => void
+  coverCredit: string
+  setCoverCredit: (val: string) => void
   urgent: boolean
   setUrgent: (val: boolean) => void
   content: string
@@ -70,6 +85,10 @@ const POSITION_LABELS: { value: NewsPosition; label: string }[] = [
 export function NewsForm({
   title,
   setTitle,
+  summary,
+  setSummary,
+  slug,
+  setSlug,
   category,
   setCategory,
   categories,
@@ -82,6 +101,10 @@ export function NewsForm({
   setPositionOrder,
   image,
   setImage,
+  coverCaption,
+  setCoverCaption,
+  coverCredit,
+  setCoverCredit,
   urgent,
   setUrgent,
   content,
@@ -93,6 +116,11 @@ export function NewsForm({
   const [activeFormats, setActiveFormats] = useState<ActiveFormats>(EMPTY_FORMATS)
   const [isDragging, setIsDragging] = useState(false)
   const { promptText } = usePromptText()
+
+  const slugError =
+    slug.trim() && !isValidSlug(slug.trim())
+      ? "Use apenas letras minúsculas, números e hífens (2 a 320 caracteres)."
+      : null
 
   function saveSelection() {
     const sel = window.getSelection()
@@ -403,14 +431,81 @@ export function NewsForm({
 
       <div className="grid gap-4 px-3 py-1">
         <div className="grid gap-2">
-          <Label htmlFor="title">Título</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="title">Título</Label>
+            <span
+              className={cn(
+                "text-xs tabular-nums",
+                title.length >= NEWS_TITLE_MAX
+                  ? "font-medium text-amber-600"
+                  : "text-muted-foreground"
+              )}
+            >
+              {title.length}/{NEWS_TITLE_MAX}
+            </span>
+          </div>
           <Input
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Título da matéria"
+            maxLength={NEWS_TITLE_MAX}
             className="text-base font-medium"
           />
+        </div>
+
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="summary">Subtítulo / linha fina</Label>
+            <span
+              className={cn(
+                "text-xs tabular-nums",
+                summary.length >= NEWS_SUMMARY_MAX
+                  ? "font-medium text-amber-600"
+                  : "text-muted-foreground"
+              )}
+            >
+              {summary.length}/{NEWS_SUMMARY_MAX}
+            </span>
+          </div>
+          <Textarea
+            id="summary"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Chamada exibida abaixo do título e usada pelos buscadores."
+            maxLength={NEWS_SUMMARY_MAX}
+            rows={3}
+            className="resize-y"
+          />
+          <p className="text-xs text-muted-foreground">
+            Se deixado em branco, geramos automaticamente a partir do conteúdo.
+          </p>
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="slug">Link da matéria</Label>
+          <div className="relative">
+            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+              /noticia/
+            </span>
+            <Input
+              id="slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="slug-da-materia"
+              maxLength={NEWS_SLUG_MAX}
+              aria-invalid={slugError ? true : undefined}
+              className="pl-[4.5rem]"
+            />
+          </div>
+          {slugError ? (
+            <p className="text-xs text-destructive">{slugError}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Gerado a partir do título. Edite para personalizar; em caso de
+              conflito o servidor adiciona um sufixo.
+            </p>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -489,6 +584,31 @@ export function NewsForm({
         )}
 
         <ImageUploader value={image} onChange={setImage} label="Imagem de capa" />
+
+        {image && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="coverCaption">Legenda da foto</Label>
+              <Input
+                id="coverCaption"
+                value={coverCaption}
+                onChange={(e) => setCoverCaption(e.target.value)}
+                placeholder="Ex.: Vista aérea do centro da cidade"
+                maxLength={280}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="coverCredit">Crédito da foto</Label>
+              <Input
+                id="coverCredit"
+                value={coverCredit}
+                onChange={(e) => setCoverCredit(e.target.value)}
+                placeholder="Ex.: João Silva / Prefeitura"
+                maxLength={160}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">

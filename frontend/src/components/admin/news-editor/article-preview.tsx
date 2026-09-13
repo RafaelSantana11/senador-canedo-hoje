@@ -13,11 +13,13 @@ interface ArticlePreviewProps {
   image: string
   urgent: boolean
   content: string
+  /** Subtítulo manual; quando vazio, gera a partir do conteúdo. */
+  summary?: string
 }
 
 export function ArticlePreview(props: ArticlePreviewProps) {
-  const { title, category, image, urgent, content } = props
-  const summary = generateExcerpt(content)
+  const { title, category, image, urgent, content, summary: manualSummary } = props
+  const summary = manualSummary?.trim() || generateExcerpt(content)
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border transition-all hover:-translate-y-0.5 hover:shadow-lg">

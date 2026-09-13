@@ -407,7 +407,8 @@ export default function ArticlesPage() {
                           size="icon"
                           variant="ghost"
                           onClick={() => setToDelete(a)}
-                          aria-label="Excluir"
+                          aria-label="Arquivar notícia"
+                          title="Arquivar (retirar do ar sem apagar)"
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />

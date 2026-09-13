@@ -17,6 +17,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { PageHeader } from "@/components/admin/admin-shell"
 import { cn } from "@/lib/utils"
 
@@ -27,14 +37,20 @@ import { useNewsBySlug } from "@/features/admin/news/hooks/use-news-by-slug"
 import { useCreateNews } from "@/features/admin/news/hooks/use-create-news"
 import { useUpdateNews } from "@/features/admin/news/hooks/use-update-news"
 import { uploadCover } from "@/features/admin/news/services/files-service"
+import { newsApiErrorMessage } from "@/features/admin/news/utils/api-error"
 import {
+  isValidSlug,
+  readCoverCaption,
+  readCoverCredit,
   readPosition,
   readPositionOrder,
   readUrgent,
+  slugify,
   type News,
   type NewsCategory,
   type NewsPayload,
   type NewsPosition,
+  type NewsStatus,
 } from "@/features/admin/news/types/news"
 
 import { NewsForm } from "@/components/admin/news-editor/news-form"
@@ -97,6 +113,11 @@ function NewsEditor({
   const isEditing = Boolean(news)
 
   const [title, setTitle] = useState(news?.title ?? "")
+  const [summary, setSummary] = useState(news?.summary ?? "")
+  // `slugInput` guarda o slug editado à mão; `null` = gerado do título.
+  // Em edição o slug existente é preservado como valor manual.
+  const [slugInput, setSlugInput] = useState<string | null>(news?.slug ?? null)
+  const slug = slugInput ?? slugify(title)
   const [category, setCategory] = useState(news?.category.name ?? categoryNames[0] ?? "")
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
     news?.tags ? news.tags.map((t) => t.id) : []
@@ -106,17 +127,39 @@ function NewsEditor({
   const [author] = useState(news?.author.name ?? "Redação")
   const [image, setImage] = useState(news?.cover?.path ?? "")
   const [coverId] = useState<string | null>(news?.cover?.id ?? null)
+  const [coverCaption, setCoverCaption] = useState(news ? readCoverCaption(news.config) : "")
+  const [coverCredit, setCoverCredit] = useState(news ? readCoverCredit(news.config) : "")
   const [config] = useState<Record<string, unknown> | null>(news?.config ?? null)
   const [urgent, setUrgent] = useState(news ? readUrgent(news.config) : false)
   const [content, setContent] = useState(news?.body ?? "")
   const [publishedAt] = useState(news?.publishedAt ?? news?.createdAt ?? "")
   const [previewTab, setPreviewTab] = useState("card")
   const [expanded, setExpanded] = useState(false)
+  const [unpublishConfirm, setUnpublishConfirm] = useState(false)
+  const [publishChecklist, setPublishChecklist] = useState<string[] | null>(null)
+
+  function handleSlugChange(value: string) {
+    setSlugInput(value.trim().length > 0 ? value : null)
+  }
 
   const selectedTags = useMemo(
     () => tags.filter((t) => selectedTagIds.includes(t.id)),
     [tags, selectedTagIds]
   )
+
+  const previewArticle = {
+    title,
+    category,
+    tags: selectedTags,
+    author,
+    image,
+    urgent,
+    content,
+    excerpt: summary.trim() || generateExcerpt(content),
+    publishedAt: publishedAt || undefined,
+    coverCaption: coverCaption.trim() || undefined,
+    coverCredit: coverCredit.trim() || undefined,
+  }
 
   /* ─── Save / Publish Handlers ───────────────────────────────────── */
 
@@ -128,6 +171,12 @@ function NewsEditor({
 
   function buildConfig(): Record<string, unknown> {
     const next: Record<string, unknown> = { ...(config ?? {}), urgent }
+
+    if (coverCaption.trim()) next.coverCaption = coverCaption.trim()
+    else delete next.coverCaption
+    if (coverCredit.trim()) next.coverCredit = coverCredit.trim()
+    else delete next.coverCredit
+
     if (position !== "normal") {
       next.position = position
       if (position === "feed" || position === "lateral") {
@@ -161,62 +210,98 @@ function NewsEditor({
     return true
   }
 
-  async function handleSaveDraft() {
+  function validateCommonFields(): boolean {
     if (!title.trim()) {
-      toast.error("Informe um título para salvar o rascunho.")
+      toast.error("Informe um título.")
+      return false
+    }
+    const trimmedSlug = slug.trim()
+    if (trimmedSlug && !isValidSlug(trimmedSlug)) {
+      toast.error(
+        "O link da matéria é inválido. Use apenas letras minúsculas, números e hífens."
+      )
+      return false
+    }
+    return guardCategory()
+  }
+
+  function missingPublishItems(): string[] {
+    const missing: string[] = []
+    if (!image) missing.push("Imagem de capa")
+    if (!summary.trim()) missing.push("Subtítulo / linha fina (seria gerado automaticamente)")
+    if (selectedTagIds.length === 0) missing.push("Tags / palavras-chave")
+    return missing
+  }
+
+  async function buildPayload(status: NewsStatus): Promise<NewsPayload> {
+    const cover = await resolveCover()
+    const trimmedSlug = slug.trim()
+    return {
+      title: title.trim(),
+      // Slug em branco (input nulo) deixa o servidor gerar, com sufixo de unicidade.
+      slug: slugInput && trimmedSlug ? trimmedSlug : undefined,
+      summary: summary.trim() || generateExcerpt(content),
+      body: content,
+      status,
+      category: categoryId(),
+      tags: selectedTagIds.map((id) => ({ id })),
+      cover,
+      config: buildConfig(),
+    }
+  }
+
+  function handleSaveDraft() {
+    if (!validateCommonFields()) return
+
+    // Salvar rascunho em matéria publicada é despublicar — confirma antes.
+    if (isEditing && news?.status === "published") {
+      setUnpublishConfirm(true)
       return
     }
-    if (!guardCategory()) return
+    void saveDraft(false)
+  }
 
+  async function saveDraft(wasPublished: boolean) {
     try {
-      const cover = await resolveCover()
-      const payload: NewsPayload = {
-        title: title.trim(),
-        summary: generateExcerpt(content),
-        body: content,
-        status: "draft",
-        category: categoryId(),
-        tags: selectedTagIds.map((id) => ({ id })),
-        cover,
-        config: buildConfig(),
-      }
+      const payload = await buildPayload("draft")
 
       if (isEditing && news) {
         await updateNews.mutateAsync({ id: news.id, payload })
-        toast.success("Rascunho atualizado.")
+        toast.success(
+          wasPublished
+            ? "Matéria retirada do ar e salva como rascunho."
+            : "Rascunho atualizado."
+        )
       } else {
         await createNews.mutateAsync(payload)
         toast.success("Rascunho salvo com sucesso.")
       }
       router.push("/admin/noticias")
-    } catch {
-      toast.error("Não foi possível salvar o rascunho.")
+    } catch (error) {
+      toast.error(
+        newsApiErrorMessage(error) ?? "Não foi possível salvar o rascunho."
+      )
     }
   }
 
-  async function handlePublish() {
-    if (!title.trim()) {
-      toast.error("Informe um título.")
-      return
-    }
+  function handlePublish() {
+    if (!validateCommonFields()) return
     if (!content.trim()) {
       toast.error("O conteúdo está vazio.")
       return
     }
-    if (!guardCategory()) return
 
+    const missing = missingPublishItems()
+    if (missing.length > 0) {
+      setPublishChecklist(missing)
+      return
+    }
+    void publish()
+  }
+
+  async function publish() {
     try {
-      const cover = await resolveCover()
-      const payload: NewsPayload = {
-        title: title.trim(),
-        summary: generateExcerpt(content),
-        body: content,
-        status: "published",
-        category: categoryId(),
-        tags: selectedTagIds.map((id) => ({ id })),
-        cover,
-        config: buildConfig(),
-      }
+      const payload = await buildPayload("published")
 
       if (isEditing && news) {
         await updateNews.mutateAsync({ id: news.id, payload })
@@ -226,8 +311,10 @@ function NewsEditor({
         toast.success("Notícia publicada com sucesso.")
       }
       router.push("/admin/noticias")
-    } catch {
-      toast.error("Não foi possível publicar a notícia.")
+    } catch (error) {
+      toast.error(
+        newsApiErrorMessage(error) ?? "Não foi possível publicar a notícia."
+      )
     }
   }
 
@@ -306,20 +393,7 @@ function NewsEditor({
                 <Minimize2 /> Fechar visualização
               </Button>
             </div>
-            <ArticlePage
-              preview
-              article={{
-                title,
-                category,
-                tags: selectedTags,
-                author,
-                image,
-                urgent,
-                content,
-                excerpt: generateExcerpt(content),
-                publishedAt: publishedAt || undefined,
-              }}
-            />
+            <ArticlePage preview article={previewArticle} />
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -328,6 +402,10 @@ function NewsEditor({
               <NewsForm
                 title={title}
                 setTitle={setTitle}
+                summary={summary}
+                setSummary={setSummary}
+                slug={slug}
+                setSlug={handleSlugChange}
                 category={category}
                 setCategory={setCategory}
                 categories={categoryNames}
@@ -340,6 +418,10 @@ function NewsEditor({
                 setPositionOrder={setPositionOrder}
                 image={image}
                 setImage={setImage}
+                coverCaption={coverCaption}
+                setCoverCaption={setCoverCaption}
+                coverCredit={coverCredit}
+                setCoverCredit={setCoverCredit}
                 urgent={urgent}
                 setUrgent={setUrgent}
                 content={content}
@@ -388,6 +470,7 @@ function NewsEditor({
                       image={image}
                       urgent={urgent}
                       content={content}
+                      summary={summary}
                     />
                   </TabsContent>
 
@@ -398,20 +481,7 @@ function NewsEditor({
                         "max-h-[600px]"
                       )}
                     >
-                      <ArticlePage
-                        preview
-                        article={{
-                          title,
-                          category,
-                          tags: selectedTags,
-                          author,
-                          image,
-                          urgent,
-                          content,
-                          excerpt: generateExcerpt(content),
-                          publishedAt: publishedAt || undefined,
-                        }}
-                      />
+                      <ArticlePage preview article={previewArticle} />
                     </div>
                   </TabsContent>
                 </div>
@@ -420,6 +490,63 @@ function NewsEditor({
           </div>
         )}
       </div>
+
+      {/* ─── Confirmação: despublicar via rascunho ──────────────── */}
+      <AlertDialog open={unpublishConfirm} onOpenChange={setUnpublishConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retirar a matéria do ar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta matéria está publicada. Salvar como rascunho vai retirá-la do
+              ar imediatamente — o link público deixa de funcionar até que ela
+              seja publicada novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setUnpublishConfirm(false)
+                void saveDraft(true)
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Retirar do ar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Checklist pré-publicação ───────────────────────────── */}
+      <AlertDialog
+        open={publishChecklist !== null}
+        onOpenChange={(open) => !open && setPublishChecklist(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publicar sem completar a matéria?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os itens abaixo ainda não foram preenchidos:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {publishChecklist?.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar e completar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setPublishChecklist(null)
+                void publish()
+              }}
+            >
+              Publicar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -31,6 +31,10 @@ interface ArticleData {
   content: string
   excerpt?: string
   publishedAt?: string
+  /** Legenda da foto de capa (fotolegenda). */
+  coverCaption?: string
+  /** Crédito da foto de capa. */
+  coverCredit?: string
 }
 
 interface ArticlePageProps {
@@ -99,6 +103,8 @@ export function ArticlePage({
     content,
     excerpt,
     publishedAt,
+    coverCaption,
+    coverCredit,
   } = article
 
   const blocks = splitMarkdownBlocks(content)
@@ -293,12 +299,19 @@ export function ArticlePage({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={assetPath(image)}
-              alt=""
+              alt={coverCaption || title || "Imagem de capa da matéria"}
               className="w-full rounded-lg object-cover"
               onError={(e) => {
                 ;(e.currentTarget as HTMLImageElement).style.display = "none"
               }}
             />
+            {(coverCaption || coverCredit) && (
+              <figcaption className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {coverCaption}
+                {coverCaption && coverCredit && " — "}
+                {coverCredit && <span>Foto: {coverCredit}</span>}
+              </figcaption>
+            )}
           </figure>
         )}
 

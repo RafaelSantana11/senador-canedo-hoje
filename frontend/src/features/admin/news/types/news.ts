@@ -6,6 +6,41 @@ export type NewsConfig = {
   position?: NewsPosition
   positionOrder?: number
   urgent?: boolean
+  /** Legenda da foto de capa (fotolegenda). */
+  coverCaption?: string
+  /** Crédito da foto de capa (ex.: "Prefeitura de Senador Canedo"). */
+  coverCredit?: string
+}
+
+/** Limites espelhados do `CreateNewsDto` do backend. */
+export const NEWS_TITLE_MAX = 300
+export const NEWS_SUMMARY_MAX = 1000
+export const NEWS_SLUG_MIN = 2
+export const NEWS_SLUG_MAX = 320
+
+export const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+/**
+ * Mesma regra do `slugify` do backend: minúsculas, sem acentos, hífens e
+ * corte em 80 caracteres (o sufixo de unicidade fica a cargo do servidor).
+ */
+export function slugify(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80)
+    .replace(/-+$/g, "")
+}
+
+export function isValidSlug(slug: string): boolean {
+  return (
+    slug.length >= NEWS_SLUG_MIN &&
+    slug.length <= NEWS_SLUG_MAX &&
+    SLUG_REGEX.test(slug)
+  )
 }
 
 export type NewsCover = {
@@ -120,6 +155,14 @@ export function readPositionOrder(config?: Record<string, unknown> | null): numb
 
 export function readUrgent(config?: Record<string, unknown> | null): boolean {
   return config?.urgent === true
+}
+
+export function readCoverCaption(config?: Record<string, unknown> | null): string {
+  return typeof config?.coverCaption === "string" ? config.coverCaption : ""
+}
+
+export function readCoverCredit(config?: Record<string, unknown> | null): string {
+  return typeof config?.coverCredit === "string" ? config.coverCredit : ""
 }
 
 export function newsToRow(n: News): NewsRow {

@@ -61,6 +61,8 @@ export type ArticleView = {
   content: string
   excerpt?: string
   publishedAt?: string
+  coverCaption?: string
+  coverCredit?: string
 }
 
 /** View model dos cards de "Leia também". */

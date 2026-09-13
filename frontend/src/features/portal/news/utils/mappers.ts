@@ -6,6 +6,14 @@ export function readUrgent(config?: Record<string, unknown> | null): boolean {
   return config?.urgent === true
 }
 
+function readString(
+  config: Record<string, unknown> | null | undefined,
+  key: string
+): string {
+  const value = config?.[key]
+  return typeof value === "string" ? value : ""
+}
+
 /** Mapeia a notícia da API para o que a página renderiza. */
 export function toArticleView(news: NewsDetail): ArticleView {
   return {
@@ -18,6 +26,8 @@ export function toArticleView(news: NewsDetail): ArticleView {
     content: news.body,
     excerpt: news.summary ?? "",
     publishedAt: news.publishedAt ?? news.createdAt,
+    coverCaption: readString(news.config, "coverCaption"),
+    coverCredit: readString(news.config, "coverCredit"),
   }
 }
 
