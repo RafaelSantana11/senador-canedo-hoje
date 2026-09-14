@@ -6,11 +6,13 @@ import {
   ChevronRight,
   Eye,
   FileText,
+  Loader2,
   Maximize2,
   Minimize2,
   Newspaper,
   Pencil,
   Send,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -37,6 +39,10 @@ import { useNewsBySlug } from "@/features/admin/news/hooks/use-news-by-slug"
 import { useCreateNews } from "@/features/admin/news/hooks/use-create-news"
 import { useUpdateNews } from "@/features/admin/news/hooks/use-update-news"
 import { uploadCover } from "@/features/admin/news/services/files-service"
+import {
+  formatNewsContent,
+  FormatNewsError,
+} from "@/features/admin/news/services/format-news-service"
 import { newsApiErrorMessage } from "@/features/admin/news/utils/api-error"
 import {
   isValidSlug,
@@ -58,6 +64,18 @@ import { PromptProvider } from "@/components/admin/news-editor/prompt-dialog-pro
 import { ArticlePreview } from "@/components/admin/news-editor/article-preview"
 import { generateExcerpt } from "@/components/admin/news-editor/markdown-utils"
 import { ArticlePage } from "@/features/portal/news/components/article-page"
+
+const FORMAT_ERROR_MESSAGES: Record<string, string> = {
+  missingApiKey:
+    "IA não configurada. Crie uma chave grátis em aistudio.google.com/apikey, defina GEMINI_API_KEY no .env e reinicie o servidor.",
+  emptyContent: "Escreva o conteúdo antes de formatar.",
+  contentTooLong: "O conteúdo é longo demais para formatar de uma vez.",
+  providerError: "A IA não conseguiu formatar agora. Tente novamente.",
+  providerUnreachable:
+    "Não foi possível falar com a IA. Verifique a conexão e tente novamente.",
+  emptyResult: "A IA não devolveu texto. Tente novamente.",
+  networkError: "Falha de rede ao chamar a IA. Tente novamente.",
+}
 
 export default function NewNewsPage() {
   const router = useRouter()
@@ -154,9 +172,33 @@ function NewsEditor({
   const [publishChecklist, setPublishChecklist] = useState<string[] | null>(
     null
   )
+  const [formatting, setFormatting] = useState(false)
 
   function handleSlugChange(value: string) {
     setSlugInput(value.trim().length > 0 ? value : null)
+  }
+
+  /** Manda o texto atual para a IA e substitui pelo Markdown formatado. */
+  async function handleFormatWithAi() {
+    if (!content.trim()) {
+      toast.error("Escreva o conteúdo antes de formatar.")
+      return
+    }
+
+    setFormatting(true)
+    try {
+      const formatted = await formatNewsContent({ content, title, summary })
+      setContent(formatted)
+      toast.success("Conteúdo formatado com IA.")
+    } catch (error) {
+      const code = error instanceof FormatNewsError ? error.code : ""
+      toast.error(
+        FORMAT_ERROR_MESSAGES[code] ??
+          "Não foi possível formatar o conteúdo."
+      )
+    } finally {
+      setFormatting(false)
+    }
   }
 
   const selectedTags = useMemo(
@@ -377,6 +419,20 @@ function NewsEditor({
                 Editando
               </Badge>
             )}
+            <Button
+              variant="outline"
+              onClick={handleFormatWithAi}
+              disabled={formatting}
+              title="Reescreve o conteúdo em Markdown jornalístico usando IA"
+              className="gap-1.5"
+            >
+              {formatting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {formatting ? "Formatando..." : "Formatar com IA"}
+            </Button>
             <Button
               variant="outline"
               onClick={handleSaveDraft}
