@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 
 import { BannerItemEntity } from '../../../../../../core/banners/infrastructure/persistence/relational/entities/banner-item.entity';
 import { NewsEntity } from '../../../../../../core/news/infrastructure/persistence/relational/entities/news.entity';
+import { SettingEntity } from '../../../../../../core/settings/infrastructure/persistence/relational/entities/setting.entity';
 import { UserEntity } from '../../../../../../core/users/infrastructure/persistence/relational/entities/user.entity';
 import { NullableType } from 'src/utils/types/nullable.type';
 import { FileType } from '../../../../domain/file';
@@ -50,6 +51,8 @@ export class FileRelationalRepository implements FileRepository {
     private readonly userRepository: Repository<UserEntity>,
     @InjectRepository(BannerItemEntity)
     private readonly bannerItemRepository: Repository<BannerItemEntity>,
+    @InjectRepository(SettingEntity)
+    private readonly settingRepository: Repository<SettingEntity>,
   ) {}
 
   async create(data: CreateFileData): Promise<FileType> {
@@ -147,17 +150,23 @@ export class FileRelationalRepository implements FileRepository {
   }
 
   /**
-   * Conta as **três** referências a `file` que existem hoje: capa de notícia,
-   * foto de usuário e item de banner.
+   * Conta as **quatro** referências a `file` que existem hoje: capa de
+   * notícia, foto de usuário, item de banner e o logo dos parâmetros do
+   * portal (`setting.value ->> 'id'`).
    *
    * ⚠️ `withDeleted: true` nas duas primeiras não é detalhe: `news` e `user`
    * são soft-deletados, e a linha soft-deletada **continua com a FK apontando
    * para o arquivo**. Ignorá-la deixaria a exclusão passar pela regra de
    * negócio e morrer no banco com violação de FK — `500` no lugar de uma
    * mensagem que o painel consegue exibir.
+   *
+   * ⚠️ `LOGO` não tem FK (jsonb) — é por isso que esta contagem existe: sem
+   * ela, `DELETE /files/:id` apagaria o arquivo do logo do site inteiro sem
+   * aviso (armadilha 2 de `tasks-parte-6.md`). `value` NULL (logo removido ou
+   * resetado) não casa com `->> 'id'`, então o arquivo é liberado sozinho.
    */
   async countUsage(id: FileType['id']): Promise<FileUsage> {
-    const [news, users, banners] = await Promise.all([
+    const [news, users, banners, settings] = await Promise.all([
       this.newsRepository.count({
         where: { cover: { id } },
         withDeleted: true,
@@ -169,9 +178,14 @@ export class FileRelationalRepository implements FileRepository {
       this.bannerItemRepository.count({
         where: { file: { id } },
       }),
+      this.settingRepository
+        .createQueryBuilder('setting')
+        .where('setting.key = :key', { key: 'LOGO' })
+        .andWhere("setting.value ->> 'id' = :id", { id })
+        .getCount(),
     ]);
 
-    return { news, users, banners };
+    return { news, users, banners, settings };
   }
 
   async remove(id: FileType['id']): Promise<void> {

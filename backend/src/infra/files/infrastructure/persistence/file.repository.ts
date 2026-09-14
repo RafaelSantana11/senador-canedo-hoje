@@ -31,14 +31,16 @@ export type FindManyFilesOptions = {
 };
 
 /**
- * Onde o arquivo está sendo usado. As **três** referências existentes hoje —
+ * Onde o arquivo está sendo usado. As **quatro** referências existentes hoje —
  * checar só uma delas deixa apagar imagem que está no ar (ver a armadilha 1 de
- * `tasks-parte-5.md`).
+ * `tasks-parte-5.md` e a armadilha 2 de `tasks-parte-6.md`, que somou `settings`:
+ * o logo do portal é gravado em jsonb, sem FK).
  */
 export type FileUsage = {
   news: number;
   users: number;
   banners: number;
+  settings: number;
 };
 
 export abstract class FileRepository {

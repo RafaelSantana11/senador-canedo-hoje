@@ -91,11 +91,14 @@ export class FilesService {
   /**
    * Exclusão do acervo.
    *
-   * ⚠️ **Checa as TRÊS referências a `file`** — capa de notícia, foto de usuário
-   * e item de banner. Checar só banners (que é o que o `context.md` 4.6 dizia,
-   * escrito antes de News existir) deixaria apagar a capa de uma notícia
-   * publicada, e o site ficaria com imagem quebrada. A constraint de FK sozinha
-   * também não serve: ela devolveria `500`, não uma mensagem que o painel exibe.
+   * ⚠️ **Checa as QUATRO referências a `file`** — capa de notícia, foto de
+   * usuário, item de banner e o logo dos parâmetros do portal (`settings`,
+   * gravado em jsonb sem FK — Parte 6). Checar só banners (que é o que o
+   * `context.md` 4.6 dizia, escrito antes de News existir) deixaria apagar a
+   * capa de uma notícia publicada, e o site ficaria com imagem quebrada. A
+   * constraint de FK sozinha também não serve: ela devolveria `500`, não uma
+   * mensagem que o painel exibe — e nem existiria para `settings`, que não tem
+   * FK nenhuma.
    *
    * Ordem das operações: linha primeiro, objeto depois. O registro no banco é a
    * fonte de verdade — se a remoção no storage falhar, sobra um objeto órfão
@@ -107,7 +110,7 @@ export class FilesService {
 
     const usage = await this.fileRepository.countUsage(id);
 
-    if (usage.news + usage.users + usage.banners > 0) {
+    if (usage.news + usage.users + usage.banners + usage.settings > 0) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         errors: {

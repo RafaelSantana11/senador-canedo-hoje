@@ -5,6 +5,7 @@ import { AuthorsModule } from './core/authors/authors.module';
 import { BannersModule } from './core/banners/banners.module';
 import { CategoriesModule } from './core/categories/categories.module';
 import { NewsModule } from './core/news/news.module';
+import { SettingsModule } from './core/settings/settings.module';
 import { TagsModule } from './core/tags/tags.module';
 import databaseConfig from './infra/database/config/database.config';
 import authConfig from './core/auth/config/auth.config';
@@ -88,6 +89,7 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
     TagsModule,
     NewsModule,
     BannersModule,
+    SettingsModule,
     SessionModule,
     MailModule,
     MailerModule,

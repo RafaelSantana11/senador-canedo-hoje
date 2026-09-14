@@ -22,7 +22,7 @@ Swagger interativo (com "Try it out"): `{HOST}/docs`.
 - [1. A tela de Mídias: de URL digitada para upload real](#1-a-tela-de-mídias-de-url-digitada-para-upload-real)
 - [2. O objeto `File`](#2-o-objeto-file)
 - [3. Rotas de Files](#3-rotas-de-files)
-- [4. Excluir arquivo: a regra das três referências](#4-excluir-arquivo-a-regra-das-três-referências)
+- [4. Excluir arquivo: a regra das quatro referências](#4-excluir-arquivo-a-regra-das-quatro-referências)
 - [5. A tela de Publicidades: de `Ad` para `Banner`](#5-a-tela-de-publicidades-de-ad-para-banner)
 - [6. Os objetos `Banner` e `BannerItem`](#6-os-objetos-banner-e-banneritem)
 - [7. Rotas administrativas de Banners](#7-rotas-administrativas-de-banners)
@@ -46,7 +46,7 @@ esta API sem ajuste. Em ordem de impacto:
 | 4 | Publicidade: `image: "/news/video-2.png"` (URL em texto) | `items: [{ file: { id } }]` — carrossel de arquivos do acervo | [§5](#5-a-tela-de-publicidades-de-ad-para-banner) |
 | 5 | `placement: "Topo (Leaderboard)"` (rótulo legível) | `position: "top"` (enum de 4 valores) | [§5](#5-a-tela-de-publicidades-de-ad-para-banner) |
 | 6 | `link: "https://..."` na campanha | `linkUrl` **por item** do carrossel, não por campanha | [§6](#6-os-objetos-banner-e-banneritem) |
-| 7 | Excluir mídia é sempre possível | **arquivo em uso não pode ser apagado** — `422 fileInUse` | [§4](#4-excluir-arquivo-a-regra-das-três-referências) |
+| 7 | Excluir mídia é sempre possível | **arquivo em uso não pode ser apagado** — `422 fileInUse` | [§4](#4-excluir-arquivo-a-regra-das-quatro-referências) |
 
 E uma mudança que só afeta ambiente de desenvolvimento:
 
@@ -169,7 +169,7 @@ Três avisos que economizam depuração:
 | `GET` | `/api/v1/files` | autenticado | acervo paginado |
 | `GET` | `/api/v1/files/:id` | autenticado | `:id` **precisa ser uuid** |
 | `PATCH` | `/api/v1/files/:id` | autenticado | só `title` e `alt` |
-| `DELETE` | `/api/v1/files/:id` | autenticado | ver [§4](#4-excluir-arquivo-a-regra-das-três-referências) |
+| `DELETE` | `/api/v1/files/:id` | autenticado | ver [§4](#4-excluir-arquivo-a-regra-das-quatro-referências) |
 
 Qualquer usuário autenticado do painel gerencia o acervo — não é privilégio de
 admin (só administração de *usuários* é).
@@ -207,19 +207,20 @@ mantém a rota do acervo separada do serving de binário do driver `local`
 
 ---
 
-## 4. Excluir arquivo: a regra das três referências
+## 4. Excluir arquivo: a regra das quatro referências
 
 `DELETE /api/v1/files/:id` apaga **de verdade** — o registro no banco e o objeto
 no storage. Não há soft delete de arquivo, e não há "lixeira".
 
-Por isso existe uma trava: **um arquivo em uso não pode ser apagado**. Hoje três
-coisas referenciam um arquivo, e as três são checadas:
+Por isso existe uma trava: **um arquivo em uso não pode ser apagado**. Hoje
+quatro coisas referenciam um arquivo, e as quatro são checadas:
 
 | Quem usa | Campo |
 |---|---|
 | Notícia | `cover` |
 | Usuário | `photo` |
 | Item de banner | `items[].file` |
+| Parâmetros do portal | `LOGO` (`GET`/`PATCH /api/v1/settings` — `INTEGRACAO-PARAMETROS-SETTINGS.md §3`) |
 
 Resposta quando o arquivo está em uso:
 
@@ -227,7 +228,7 @@ Resposta quando o arquivo está em uso:
 {
   "status": 422,
   "errors": { "id": "fileInUse" },
-  "usedBy": { "news": 2, "users": 0, "banners": 1 }
+  "usedBy": { "news": 2, "users": 0, "banners": 1, "settings": 0 }
 }
 ```
 
@@ -240,9 +241,10 @@ Não mostre "erro ao excluir". Monte a frase a partir do `usedBy`:
 
 ```ts
 const partes: string[] = []
-if (usedBy.news)    partes.push(`${usedBy.news} notícia(s)`)
-if (usedBy.users)   partes.push(`${usedBy.users} usuário(s)`)
-if (usedBy.banners) partes.push(`${usedBy.banners} banner(s)`)
+if (usedBy.news)     partes.push(`${usedBy.news} notícia(s)`)
+if (usedBy.users)    partes.push(`${usedBy.users} usuário(s)`)
+if (usedBy.banners)  partes.push(`${usedBy.banners} banner(s)`)
+if (usedBy.settings) partes.push(`logo do site`)
 
 toast.error(
   `Esta imagem está em uso em ${partes.join(', ')} e não pode ser excluída. ` +
@@ -251,13 +253,15 @@ toast.error(
 ```
 
 O caminho para liberar o arquivo é sempre o mesmo: **remover a referência**
-(trocar a capa da notícia, trocar a foto do usuário, tirar o item do carrossel ou
-apagar a campanha). Feito isso, o `DELETE` passa.
+(trocar a capa da notícia, trocar a foto do usuário, tirar o item do carrossel,
+apagar a campanha, ou trocar/remover o logo em Parâmetros). Feito isso, o
+`DELETE` passa.
 
 > Notícia **arquivada** e usuário **excluído** ainda contam: o vínculo continua no
 > banco. Isso é intencional — se não contassem, o `DELETE` passaria pela regra e
 > morreria numa violação de chave estrangeira, devolvendo `500` em vez de uma
-> mensagem exibível.
+> mensagem exibível. `settings.LOGO` não tem essa constraint (é jsonb, sem FK) —
+> a contagem é por consulta ao próprio valor gravado, não por chave estrangeira.
 
 ---
 
@@ -553,11 +557,11 @@ ajuste antes de sair do `localStorage`.
 
 Formato sempre `{ "status": 4xx, "errors": { "<campo>": "<código>" } }` — o mesmo
 das fases anteriores. `DELETE /files/:id` acrescenta um `usedBy` **ao lado** de
-`errors` (ver [§4](#4-excluir-arquivo-a-regra-das-três-referências)).
+`errors` (ver [§4](#4-excluir-arquivo-a-regra-das-quatro-referências)).
 
 | Código | Campo | Significado |
 |---|---|---|
-| `fileInUse` | `id` | `422`: arquivo referenciado por notícia, usuário ou banner. Vem com `usedBy` |
+| `fileInUse` | `id` | `422`: arquivo referenciado por notícia, usuário, banner ou o logo dos parâmetros do portal. Vem com `usedBy: { news, users, banners, settings }` |
 | `fileNotFound` | `id` | `404`: arquivo inexistente |
 | `readOnlyField` | `path`, `type`, `originalName`, `mimeType`, `sizeBytes`, `width`, `height`, `uploadedBy` | campo derivado do servidor; não envie no `PATCH /files/:id` |
 | `readOnlyField` | `image`, `link`, `placement` | campos do protótipo de publicidade que não existem na API |

@@ -112,8 +112,9 @@ export class FilesController {
   /**
    * Exclusão definitiva — registro **e** objeto no storage.
    *
-   * Arquivo em uso (capa de notícia, foto de usuário ou item de banner) responde
-   * `422 { errors: { id: 'fileInUse' }, usedBy: { news, users, banners } }`.
+   * Arquivo em uso (capa de notícia, foto de usuário, item de banner ou logo
+   * do site) responde
+   * `422 { errors: { id: 'fileInUse' }, usedBy: { news, users, banners, settings } }`.
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
