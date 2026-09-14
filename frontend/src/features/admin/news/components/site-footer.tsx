@@ -1,6 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { WHATSAPP_NUMBER } from "@/lib/portal-params"
+import { openConsentPreferences } from "@/lib/consent"
 import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
 
 const contactLinks = [
@@ -40,7 +42,7 @@ export function SiteFooter() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
           {contactLinks.map((link) => (
             <a
               key={link.label}
@@ -52,6 +54,19 @@ export function SiteFooter() {
               {link.label}
             </a>
           ))}
+          <Link
+            href="/politica-de-privacidade"
+            className="text-primary-foreground/80 transition-colors hover:text-primary-foreground"
+          >
+            política de privacidade
+          </Link>
+          <button
+            type="button"
+            onClick={openConsentPreferences}
+            className="cursor-pointer text-primary-foreground/80 transition-colors hover:text-primary-foreground"
+          >
+            gerenciar cookies
+          </button>
         </div>
       </div>
     </footer>

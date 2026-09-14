@@ -1,10 +1,23 @@
 "use client"
 
-import { useEffect, useState, useCallback, useSyncExternalStore } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
+import Link from "next/link"
 import { GoogleAnalytics } from "@next/third-parties/google"
+import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { isGaEnabled, updateConsent, GA_MEASUREMENT_ID } from "@/lib/gtag"
-import { getConsent, setConsent, type ConsentChoice } from "@/lib/consent"
+import {
+  getConsent,
+  setConsent,
+  CONSENT_OPEN_EVENT,
+  type ConsentChoice,
+} from "@/lib/consent"
 
 // Script de Consent Mode v2 injetado ANTES do gtag carregar. Define o dataLayer
 // e o `gtag` global, e registra o consentimento padrão como 'denied', para que
@@ -33,9 +46,13 @@ export function AnalyticsProvider() {
   const [consent, setConsentState] = useState<ConsentChoice | null>(() =>
     typeof document === "undefined" ? null : getConsent()
   )
-  // O banner só aparece quando o GA está ativo, o cliente hidratou e o
-  // usuário ainda não decidiu (cookie `ga_consent` ausente ou expirado).
-  const visible = enabled && hydrated && consent === null
+  // `true` quando o usuário pede para revisar a escolha ("gerenciar cookies").
+  const [open, setOpen] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
+  // O banner aparece na primeira visita (sem decisão) ou quando reaberto pelo
+  // rodapé, permitindo revisar e revogar o consentimento a qualquer momento.
+  const visible = enabled && hydrated && (consent === null || open)
 
   // Se o visitante já aceitou anteriormente, libera só analytics_storage.
   // Sinais de anúncio nunca são concedidos (coleta mínima).
@@ -43,15 +60,34 @@ export function AnalyticsProvider() {
     if (enabled && consent === "accepted") updateConsent("granted")
   }, [enabled, consent])
 
-  const handleConsent = useCallback(
-    (choice: ConsentChoice) => {
-      setConsent(choice)
-      setConsentState(choice)
-      if (choice === "accepted") updateConsent("granted")
-      else updateConsent("denied")
-    },
-    []
-  )
+  // Reabre o banner quando qualquer "gerenciar cookies" dispara o evento.
+  useEffect(() => {
+    if (!enabled) return
+    const handleOpen = () => setOpen(true)
+    window.addEventListener(CONSENT_OPEN_EVENT, handleOpen)
+    return () => window.removeEventListener(CONSENT_OPEN_EVENT, handleOpen)
+  }, [enabled])
+
+  // Ao reabrir, move o foco para o diálogo e devolve ao gatilho ao fechar.
+  useEffect(() => {
+    if (!open) return
+    triggerRef.current = document.activeElement as HTMLElement | null
+    dialogRef.current?.focus()
+    return () => triggerRef.current?.focus()
+  }, [open])
+
+  const handleConsent = useCallback((choice: ConsentChoice) => {
+    setConsent(choice)
+    setConsentState(choice)
+    setOpen(false)
+    if (choice === "accepted") updateConsent("granted")
+    else updateConsent("denied")
+  }, [])
+
+  // Esc fecha apenas quando já existe uma decisão salva (reabertura).
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape" && consent !== null) setOpen(false)
+  }
 
   if (!enabled) return null
 
@@ -63,28 +99,59 @@ export function AnalyticsProvider() {
 
       {visible && (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-label="Consentimento de cookies"
-          className="fixed inset-x-0 bottom-0 z-50 mx-auto mb-4 w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-background p-5 shadow-lg"
+          tabIndex={-1}
+          onKeyDown={handleKeyDown}
+          className="fixed inset-x-0 bottom-0 z-50 mx-auto mb-4 w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-background p-5 shadow-lg outline-none"
         >
-          <p className="text-sm text-foreground">
-            Este site usa cookies para medir audiência e melhorar a experiência
-            de navegação. Ao continuar usando o site fora desta janela de
-            consentimento, não tratamos seus dados para fins analíticos.
-          </p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button
-              onClick={() => handleConsent("accepted")}
-              className="flex-1"
-            >
-              Aceitar
-            </Button>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-foreground">
+              Usamos cookies para medir audiência e entender como o site é
+              usado. Não usamos seus dados para anúncios nem os vendemos, e
+              recusar não muda sua experiência. Detalhes na{" "}
+              <Link
+                href="/politica-de-privacidade"
+                className="font-medium underline underline-offset-4 hover:text-primary"
+              >
+                Política de Privacidade
+              </Link>
+              .
+            </p>
+            {consent !== null && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Fechar"
+                className="-mt-1 -mr-1 shrink-0"
+                onClick={() => setOpen(false)}
+              >
+                <X className="size-4" />
+              </Button>
+            )}
+          </div>
+
+          {consent !== null && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Escolha atual: {consent === "accepted" ? "aceito" : "recusado"}.
+              Você pode alterar abaixo.
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-col gap-3 max-md:flex-col-reverse sm:flex-row sm:gap-2">
             <Button
               variant="outline"
               onClick={() => handleConsent("denied")}
-              className="flex-1"
+              className="h-14 flex-1 rounded-xl text-base font-semibold max-md:py-2 sm:h-9 sm:rounded-lg sm:text-sm sm:font-medium"
             >
               Recusar
+            </Button>
+            <Button
+              onClick={() => handleConsent("accepted")}
+              className="h-14 flex-1 rounded-xl text-base font-semibold max-md:py-2 sm:h-9 sm:rounded-lg sm:text-sm sm:font-medium"
+            >
+              Aceitar
             </Button>
           </div>
         </div>
