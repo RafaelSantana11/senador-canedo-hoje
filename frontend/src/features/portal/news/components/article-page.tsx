@@ -286,8 +286,7 @@ export function ArticlePage({
   // As funções são no-op seguras quando o GA está desativado.
   // -----------------------------------------------------------------
 
-  const shareUrl =
-    typeof window !== "undefined" ? window.location.href : ""
+  const shareUrl = typeof window !== "undefined" ? window.location.href : ""
 
   const shareText = encodeURIComponent(`${title} — Senador Canedo Hoje`)
   const shareHref = encodeURIComponent(shareUrl)
@@ -364,13 +363,13 @@ export function ArticlePage({
 
         {/* Badges */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-sm bg-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground">
+          <span className="inline-flex items-center rounded-sm bg-primary px-2.5 py-1 text-xs font-semibold tracking-wide text-primary-foreground uppercase">
             {category}
           </span>
           {tags?.map((t) => (
             <span
               key={t.id}
-              className="inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-semibold border"
+              className="inline-flex items-center gap-1 rounded-sm border px-2.5 py-1 text-xs font-semibold"
               style={{
                 backgroundColor: `${t.color || "#6366f1"}15`,
                 color: t.color || "inherit",
@@ -381,13 +380,13 @@ export function ArticlePage({
             </span>
           ))}
           {urgent && (
-            <span className="inline-flex items-center gap-1 rounded-sm bg-destructive px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+            <span className="inline-flex items-center gap-1 rounded-sm bg-destructive px-2.5 py-1 text-xs font-semibold tracking-wide text-white uppercase">
               <AlertCircle className="h-3 w-3" /> Urgente
             </span>
           )}
         </div>
 
-        <h1 className="mt-0.5 text-3xl font-bold leading-tight tracking-tight text-foreground md:text-5xl">
+        <h1 className="mt-0.5 text-3xl leading-tight font-bold tracking-tight text-foreground md:text-5xl">
           {title || "Título da matéria"}
         </h1>
 
@@ -398,7 +397,7 @@ export function ArticlePage({
         )}
 
         {/* Meta */}
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-y border-border py-4 text-sm text-muted-foreground">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-y border-border/50 py-4 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <User className="h-4 w-4" />
             Por{" "}
@@ -418,7 +417,7 @@ export function ArticlePage({
             <Clock className="h-4 w-4" />
             {readingTime(content)} min de leitura
           </span>
-          <div className="w-full flex items-center gap-1">
+          <div className="flex w-full items-center gap-1">
             <button
               type="button"
               disabled={preview}
@@ -431,7 +430,7 @@ export function ArticlePage({
                 )
               }}
               aria-label="Compartilhar no WhatsApp"
-              className="inline-flex flex-1 text-zinc-950 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium hover:bg-[#21C063] disabled:opacity-60 hover:text-white"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium text-zinc-950 hover:bg-[#21C063] hover:text-white disabled:opacity-60"
             >
               <WhatsAppIcon className="h-3.5 w-3.5" />
               WhatsApp
@@ -448,7 +447,7 @@ export function ArticlePage({
                 )
               }}
               aria-label="Compartilhar no Facebook"
-              className="inline-flex flex-1 text-zinc-950 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium hover:bg-[#0064E0] disabled:opacity-60 hover:text-white"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium text-zinc-950 hover:bg-[#0064E0] hover:text-white disabled:opacity-60"
             >
               <FacebookIcon className="h-3.5 w-3.5" />
               Facebook
@@ -458,7 +457,7 @@ export function ArticlePage({
               disabled={preview}
               onClick={handleShareClick}
               aria-label="Compartilhar"
-              className="inline-flex flex-1 text-zinc-950 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium hover:bg-zinc-700 disabled:opacity-60 hover:text-white"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-xs font-medium text-zinc-950 hover:bg-zinc-700 hover:text-white disabled:opacity-60"
             >
               <Share2 className="h-3.5 w-3.5" />
               Compartilhar
@@ -531,14 +530,15 @@ export function ArticlePage({
                           alt=""
                           className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
                           onError={(e) => {
-                            ;(e.currentTarget as HTMLImageElement).style.display =
-                              "none"
+                            ;(
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = "none"
                           }}
                         />
                       )}
                     </div>
                     <div className="flex flex-col gap-2 p-4">
-                      <span className="text-xs font-semibold tracking-wide uppercase text-secondary">
+                      <span className="text-xs font-semibold tracking-wide text-secondary uppercase">
                         {item.category}
                       </span>
                       <h3 className="text-sm leading-snug font-semibold text-foreground">

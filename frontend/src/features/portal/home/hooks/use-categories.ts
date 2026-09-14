@@ -1,16 +1,14 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { getPublicCategories } from "../services/categories-service"
+import {
+  PORTAL_CATEGORIES_KEY,
+  portalCategoriesOptions,
+} from "../services/categories-options"
 
-export const PORTAL_CATEGORIES_KEY = ["portal", "categories"] as const
+export { PORTAL_CATEGORIES_KEY }
 
-// Menu do portal: só ativas, ordenadas por nome no servidor. A rota é anônima
-// (`publicApi` não anexa token), então o `?active=` explícito só documenta a
-// intenção — o backend já filtra sem sessão.
+// Menu do portal: busca a lista de categorias ativas (prefetch SSR na home).
 export function usePortalCategories() {
-  return useQuery({
-    queryKey: PORTAL_CATEGORIES_KEY,
-    queryFn: () => getPublicCategories({ page: 1, limit: 100, active: true }),
-  })
+  return useQuery(portalCategoriesOptions())
 }

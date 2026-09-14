@@ -9,6 +9,15 @@ import {
   defaultOpenGraphImage,
 } from "@/lib/seo"
 
+// ISR on-demand: `generateStaticParams` vazio faz cada notícia ser renderizada
+// estaticamente na primeira visita (em vez de a cada request) e revalidada a
+// cada 5 min. O admin invalida na hora via /api/revalidate ao publicar/editar.
+export const revalidate = 300
+
+export function generateStaticParams() {
+  return []
+}
+
 interface PageProps {
   params: Promise<{ slug: string }>
 }

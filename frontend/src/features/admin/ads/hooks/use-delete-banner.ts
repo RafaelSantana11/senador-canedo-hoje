@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { deleteBanner } from "../services/banners-service"
+import { revalidatePortalCache } from "@/services/revalidate-portal"
 import { BANNERS_KEY } from "./use-banners"
 
 export function useDeleteBanner() {
@@ -11,6 +12,7 @@ export function useDeleteBanner() {
     mutationFn: (id: string) => deleteBanner(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: BANNERS_KEY })
+      revalidatePortalCache(queryClient)
     },
   })
 }

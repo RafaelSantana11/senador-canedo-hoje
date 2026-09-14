@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { updateNews } from "../services/news-service"
+import { revalidatePortalCache } from "@/services/revalidate-portal"
 import { NEWS_KEY } from "./use-news"
 import type { NewsPayload } from "../types/news"
 
@@ -18,6 +19,7 @@ export function useUpdateNewsPosition() {
       Promise.all(patches.map((p) => updateNews(p.id, p.payload))),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: NEWS_KEY })
+      revalidatePortalCache(queryClient)
     },
   })
 }

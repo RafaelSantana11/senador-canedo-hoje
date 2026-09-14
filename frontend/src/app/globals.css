@@ -275,7 +275,7 @@
    O link de fallback só aparece quando o SDK não renderiza o post. */
 .facebook-embed .fb-post,
 .facebook-embed .fb-video {
-  border-radius: 12px;
+  border-radius: 4px;
   overflow: hidden;
 }
 

@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { updateBanner } from "../services/banners-service"
+import { revalidatePortalCache } from "@/services/revalidate-portal"
 import { BANNERS_KEY } from "./use-banners"
 import type { BannerPayload } from "../types/banner"
 
@@ -13,6 +14,7 @@ export function useUpdateBanner() {
       updateBanner(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: BANNERS_KEY })
+      revalidatePortalCache(queryClient)
     },
   })
 }
