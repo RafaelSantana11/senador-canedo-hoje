@@ -3,9 +3,11 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -27,18 +29,27 @@ import {
 } from '../../utils/dto/infinity-pagination-response.dto';
 import { infinityPagination } from '../../utils/infinity-pagination';
 import { News } from './domain/news';
+import { NewsViews, NewsViewsResponse } from './domain/news-views';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { QueryNewsDto } from './dto/query-news.dto';
+import { QueryNewsViewsDto } from './dto/query-news-views.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { NewsService } from './news.service';
 
 /**
- * Duas rotas públicas (`GET` de lista e de detalhe) e três autenticadas.
+ * Quatro rotas públicas (`GET` de lista, de detalhe e de contagem de views, e o
+ * `POST` que registra uma visita) e três autenticadas.
  *
- * As públicas usam `AuthGuard(['jwt','anonymous'])`: a rota abre sem token, mas
- * quando o token vem, `request.user` é populado — é assim que a **mesma** rota
- * devolve só o publicado para o visitante e o acervo inteiro para o painel.
- * Token inválido cai no ramo anônimo (visão pública), não em `401`.
+ * Lista e detalhe usam `AuthGuard(['jwt','anonymous'])`: a rota abre sem token,
+ * mas quando o token vem, `request.user` é populado — é assim que a **mesma**
+ * rota devolve só o publicado para o visitante e o acervo inteiro para o painel.
+ * Token inválido cai no ramo anônimo (visão pública), não em `401`. As duas de
+ * views não têm guard: são sempre a visão pública.
+ *
+ * ⚠️ `views` é declarada **antes** de `:slug`: dentro de um controller o Nest
+ * casa as rotas na ordem de declaração, e `GET /news/:slug` engoliria
+ * `GET /news/views` como se `views` fosse um slug. Por isso `views` também é
+ * slug reservado (`NewsService`).
  */
 @ApiTags('News')
 @Controller({
@@ -81,9 +92,25 @@ export class NewsController {
   }
 
   /**
-   * Detalhe por slug — **incrementa `views`** quando a notícia está publicada.
-   * Ou seja, este `GET` não é idempotente: o cliente que chamar duas vezes
-   * (React em modo estrito, por exemplo) conta duas visitas.
+   * Contagem **atual** de `views` de várias notícias: `?ids=<uuid>,<uuid>`.
+   *
+   * O cliente cacheia listagem e detalhe, e o `views` que vem dentro deles fica
+   * congelado junto. Esta rota existe para ser consultada a cada refresh — daí
+   * o `no-store`, que impede cache intermediário de congelá-la também.
+   */
+  @ApiOkResponse({ type: NewsViewsResponse })
+  @Get('views')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  async findViews(
+    @Query() query: QueryNewsViewsDto,
+  ): Promise<NewsViewsResponse> {
+    return { data: await this.newsService.findViews(query.ids) };
+  }
+
+  /**
+   * Detalhe por slug. Leitura pura e idempotente: **não** incrementa `views`
+   * (a visita se registra em `POST /news/:id/views`).
    */
   @ApiOkResponse({ type: News })
   @UseGuards(AuthGuard(['jwt', 'anonymous']))
@@ -95,6 +122,20 @@ export class NewsController {
       slug,
       authenticated: Boolean(request.user?.id),
     });
+  }
+
+  /**
+   * Registra **uma** leitura e devolve a contagem nova. Não é idempotente: cada
+   * chamada conta. Notícia não publicada ou inexistente responde `404`.
+   */
+  @ApiOkResponse({ type: NewsViews })
+  @Post(':id/views')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'id', type: String, format: 'uuid', required: true })
+  registerView(
+    @Param('id', new ParseUUIDPipe()) id: News['id'],
+  ): Promise<NewsViews> {
+    return this.newsService.registerView(id);
   }
 
   /** Qualquer usuário autenticado escreve; a assinatura é o `Author` dele. */

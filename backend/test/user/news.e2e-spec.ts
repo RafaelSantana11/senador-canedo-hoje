@@ -183,63 +183,246 @@ describe('News Module (rotas públicas)', () => {
     });
   });
 
+  /**
+   * `views` tem rotas próprias: `POST /news/:id/views` registra a visita e
+   * `GET /news/views?ids=` lê a contagem atual. O detalhe (`GET /news/:slug`)
+   * não conta mais nada — o portal cacheia essa página, e contar ali mediria
+   * regeneração de cache, não leitura.
+   */
   describe('views', () => {
-    it('should increment on every read: /api/v1/news/:slug (GET)', async () => {
-      const news = await createNews(authorToken, {
-        categoryId: category.id,
-        status: 'published',
+    const registerView = (id: string) =>
+      request(app).post(`/api/v1/news/${id}/views`);
+
+    const readViews = (ids: string[]) =>
+      request(app)
+        .get('/api/v1/news/views')
+        .query({ ids: ids.join(',') });
+
+    describe('Registro: /api/v1/news/:id/views (POST)', () => {
+      it('should increment and return the new count on every call', async () => {
+        const news = await createNews(authorToken, {
+          categoryId: category.id,
+          status: 'published',
+        });
+
+        expect(news.views).toBe(0);
+
+        await registerView(news.id)
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body).toEqual({ id: news.id, views: 1 });
+          });
+
+        await registerView(news.id)
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body).toEqual({ id: news.id, views: 2 });
+          });
       });
 
-      expect(news.views).toBe(0);
+      // Com ler-somar-gravar, requisições simultâneas perderiam contagem.
+      it('should not lose counts on concurrent calls', async () => {
+        const news = await createNews(authorToken, {
+          categoryId: category.id,
+          status: 'published',
+        });
 
-      const first = await request(app)
-        .get(`/api/v1/news/${news.slug}`)
-        .expect(200);
-      expect(first.body.views).toBe(1);
+        await Promise.all(
+          Array.from({ length: 10 }, () => registerView(news.id).expect(200)),
+        );
 
-      const second = await request(app)
-        .get(`/api/v1/news/${news.slug}`)
-        .expect(200);
-      expect(second.body.views).toBe(2);
-    });
-
-    // Com ler-somar-gravar, requisições simultâneas perderiam contagem.
-    it('should not lose counts on concurrent reads: /api/v1/news/:slug (GET)', async () => {
-      const news = await createNews(authorToken, {
-        categoryId: category.id,
-        status: 'published',
+        await readViews([news.id])
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body.data).toEqual([{ id: news.id, views: 10 }]);
+          });
       });
 
-      await Promise.all(
-        Array.from({ length: 10 }, () =>
-          request(app).get(`/api/v1/news/${news.slug}`).expect(200),
-        ),
-      );
+      it('should answer 404 for a draft and keep its count at zero', async () => {
+        const news = await createNews(authorToken, { categoryId: category.id });
 
-      await request(app)
-        .get(`/api/v1/news/${news.slug}`)
-        .expect(200)
-        .expect(({ body }) => {
-          // 10 leituras + a deste expect
-          expect(body.views).toBe(11);
+        await registerView(news.id)
+          .expect(404)
+          .expect(({ body }) => {
+            expect(body.errors).toEqual({ id: 'newsNotFound' });
+          });
+
+        await request(app)
+          .get(`/api/v1/news/${news.slug}`)
+          .auth(authorToken, { type: 'bearer' })
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body.views).toBe(0);
+          });
+      });
+
+      it('should answer 404 for an archived news', () => {
+        return registerView(archived.id).expect(404);
+      });
+
+      it('should answer 404 for an id that does not exist', () => {
+        return registerView('1e2c8b3a-0000-4000-8000-000000000000')
+          .expect(404)
+          .expect(({ body }) => {
+            expect(body.errors).toEqual({ id: 'newsNotFound' });
+          });
+      });
+
+      it('should answer 400 for an id that is not a uuid', () => {
+        return registerView('not-a-uuid').expect(400);
+      });
+
+      // Uma visita não é edição: o front usa `updatedAt` como data de
+      // modificação (sitemap, Open Graph).
+      it('should not touch updatedAt', async () => {
+        const news = await createNews(authorToken, {
+          categoryId: category.id,
+          status: 'published',
         });
+
+        const before = await request(app)
+          .get(`/api/v1/news/${news.slug}`)
+          .expect(200);
+
+        await registerView(news.id).expect(200);
+
+        await request(app)
+          .get(`/api/v1/news/${news.slug}`)
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body.views).toBe(1);
+            expect(body.updatedAt).toBe(before.body.updatedAt);
+          });
+      });
     });
 
-    it('should not count reads of a draft: /api/v1/news/:slug (GET)', async () => {
-      const news = await createNews(authorToken, { categoryId: category.id });
-
-      await request(app)
-        .get(`/api/v1/news/${news.slug}`)
-        .auth(authorToken, { type: 'bearer' })
-        .expect(200);
-
-      await request(app)
-        .get(`/api/v1/news/${news.slug}`)
-        .auth(authorToken, { type: 'bearer' })
-        .expect(200)
-        .expect(({ body }) => {
-          expect(body.views).toBe(0);
+    describe('Detalhe: /api/v1/news/:slug (GET)', () => {
+      it('should not increment views anymore (idempotent read)', async () => {
+        const news = await createNews(authorToken, {
+          categoryId: category.id,
+          status: 'published',
         });
+
+        await request(app).get(`/api/v1/news/${news.slug}`).expect(200);
+        await request(app).get(`/api/v1/news/${news.slug}`).expect(200);
+
+        await request(app)
+          .get(`/api/v1/news/${news.slug}`)
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body.views).toBe(0);
+          });
+      });
+
+      it('should still carry views in the payload, as a snapshot', async () => {
+        const news = await createNews(authorToken, {
+          categoryId: category.id,
+          status: 'published',
+        });
+
+        await registerView(news.id).expect(200);
+
+        await request(app)
+          .get(`/api/v1/news/${news.slug}`)
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body.views).toBe(1);
+          });
+      });
+    });
+
+    describe('Leitura: /api/v1/news/views (GET)', () => {
+      it('should return the current count of each published news, most read first', async () => {
+        const [less, more] = await Promise.all([
+          createNews(authorToken, {
+            categoryId: category.id,
+            status: 'published',
+          }),
+          createNews(authorToken, {
+            categoryId: category.id,
+            status: 'published',
+          }),
+        ]);
+
+        await registerView(less.id).expect(200);
+        for (let i = 0; i < 3; i++) {
+          await registerView(more.id).expect(200);
+        }
+
+        await readViews([less.id, more.id])
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body).toEqual({
+              data: [
+                { id: more.id, views: 3 },
+                { id: less.id, views: 1 },
+              ],
+            });
+          });
+      });
+
+      it('should omit drafts, archived and unknown ids, even with a token', async () => {
+        const ids = [
+          published.id,
+          draft.id,
+          archived.id,
+          '1e2c8b3a-0000-4000-8000-000000000000',
+        ];
+
+        for (const token of [undefined, adminToken]) {
+          const req = readViews(ids);
+          if (token) req.auth(token, { type: 'bearer' });
+
+          await req.expect(200).expect(({ body }) => {
+            expect(body.data.map((item) => item.id)).toEqual([published.id]);
+          });
+        }
+      });
+
+      it('should list a repeated id only once', () => {
+        return readViews([published.id, published.id, published.id])
+          .expect(200)
+          .expect(({ body }) => {
+            expect(body.data).toHaveLength(1);
+          });
+      });
+
+      it('should forbid caching the response', () => {
+        return readViews([published.id])
+          .expect(200)
+          .expect('cache-control', 'no-store');
+      });
+
+      // Se `views` caísse na rota `:slug`, a resposta seria 404 newsNotFound.
+      it('should answer 422 when ids is missing, instead of falling into :slug', () => {
+        return request(app)
+          .get('/api/v1/news/views')
+          .expect(422)
+          .expect(({ body }) => {
+            expect(body.errors).toEqual({ ids: 'idsInvalid' });
+          });
+      });
+
+      it('should answer 422 for an id that is not a uuid', () => {
+        return readViews([published.id, 'not-a-uuid'])
+          .expect(422)
+          .expect(({ body }) => {
+            expect(body.errors).toEqual({ ids: 'idsInvalid' });
+          });
+      });
+
+      it('should answer 422 above 100 ids instead of truncating', () => {
+        const ids = Array.from(
+          { length: 101 },
+          (_, i) => `1e2c8b3a-0000-4000-8000-${String(i).padStart(12, '0')}`,
+        );
+
+        return readViews(ids)
+          .expect(422)
+          .expect(({ body }) => {
+            expect(body.errors).toEqual({ ids: 'idsTooMany' });
+          });
+      });
     });
   });
 

@@ -71,7 +71,10 @@ export class News {
 
   @ApiProperty({
     type: Number,
-    description: 'Incrementado a cada `GET /news/:slug` de notícia publicada.',
+    description:
+      'Retrato do momento da leitura — sob cache, fica defasado. A contagem ' +
+      'atual vem de `GET /news/views`; a visita se registra em ' +
+      '`POST /news/:id/views`.',
   })
   views: number;
 

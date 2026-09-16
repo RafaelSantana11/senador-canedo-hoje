@@ -10,7 +10,7 @@ já cobre login, refresh, perfil e autores — **os fundamentos (base URL, Beare
 token, CORS, formato de erro) estão lá e valem igual aqui**.
 
 Swagger interativo (com "Try it out"): `{HOST}/docs`.
-Última atualização: 2026-08-13.
+Última atualização: 2026-09-16.
 
 ---
 
@@ -46,7 +46,10 @@ impacto:
 
 E duas mudanças de comportamento que não quebram, mas mudam o que aparece:
 
-- `GET /news/:slug` **incrementa `views`** — não é idempotente (ver [§4.2](#42-get-newsslug--público)).
+- `views` tem **rotas próprias**: a visita se registra em `POST /news/:id/views`
+  e a contagem atual se lê em `GET /news/views?ids=`. O `GET /news/:slug` **não
+  incrementa mais nada** (ver [§4.6](#46-get-newsviews--público) e
+  [§4.7](#47-post-newsidviews--público)).
 - `DELETE /news/:id` **arquiva**, não apaga (ver [§4.5](#45-delete-newsid--autor-ou-admin)).
 
 ---
@@ -236,7 +239,7 @@ type News = {
   category: Category          // objeto completo (sem `newsCount` aqui)
   author: Author              // achatado, sem `user` aninhado, sem e-mail
   tags: Tag[]                 // sem `usageCount` aqui
-  views: number
+  views: number               // retrato do momento da leitura — ver §4.6
   config: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
@@ -294,12 +297,12 @@ Detalhe por **slug** (não por id).
 
 - Sem token, notícia `draft` ou `archived` responde **`404`** — não `403`, que já
   contaria que ela existe.
-- ⚠️ **Incrementa `views`** (soma atômica no banco) quando a notícia está
-  `published`. Rascunho aberto no painel **não** conta.
-- Como consequência, **este `GET` não é idempotente**. Em React 18 com
-  `StrictMode`, um efeito que busca a notícia roda duas vezes em dev e conta
-  duas visitas. Busque a notícia num único ponto (loader/server component ou
-  query com `staleTime`), não em efeito duplicável.
+- **Leitura pura e idempotente**: não incrementa `views`.
+
+> **Mudou (2026-09-16):** até aqui este `GET` incrementava `views`. Com o detalhe
+> servido de cache, isso contava regeneração de página, não visita. A visita
+> agora se registra em [`POST /news/:id/views`](#47-post-newsidviews--público):
+> quem só chama este `GET` **deixa de contar visitas**.
 
 **Erros**: `404` `{ "slug": "newsNotFound" }`.
 
@@ -327,6 +330,9 @@ Qualquer usuário do dashboard pode criar (não é privilégio de admin).
 - `status` é opcional; o default é **`draft`**.
 - `slug` é opcional — gerado do título, com sufixo numérico em caso de colisão
   (`titulo`, `titulo-2`, `titulo-3`...). Se mandar um slug já usado: `422`.
+  **`views` é reservado** (colide com `GET /news/views`): mandar dá
+  `422 slugAlreadyExists`, e um título "Views" gera `views-2`. Vale também no
+  `PATCH`.
 - `tags` é opcional; `[]` ou ausente = sem tags.
 - **`author` não entra no payload** — é o `Author` do usuário do token.
 
@@ -375,6 +381,79 @@ Consequência: a notícia **desaparece das rotas públicas** (`404` no detalhe, 
 da listagem) e **continua visível** para quem está autenticado, com
 `status: "archived"`. Não existe "restaurar" explícito — é um
 `PATCH { "status": "published" }`.
+
+### 4.6 `GET /news/views` — público
+
+Contagem **atual** de `views` de várias notícias, sem o resto do payload.
+
+O `views` que vem dentro de `GET /news` e `GET /news/:slug` continua lá, mas é o
+**retrato do momento em que aquela resposta foi gerada**. Se ela estiver em
+cache, o número está congelado junto. Esta rota existe para ser consultada a
+cada refresh: é leve (lê só `id` e `views`, sem relações) e responde com
+`Cache-Control: no-store`.
+
+**Request**
+
+```
+GET /api/v1/news/views?ids=<uuid>,<uuid>,<uuid>
+```
+
+| Param | Tipo | Observação |
+|---|---|---|
+| `ids` | string | **obrigatório**. UUIDs separados por vírgula, **no máximo 100**. Repetidos contam uma vez |
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    { "id": "0b0e7c0e-5d1a-4a8e-9f0e-2f6f8d5c1a11", "views": 128 },
+    { "id": "cbcfa8b8-3a25-4adb-a9c6-e325f0d0f3ae", "views": 42 }
+  ]
+}
+```
+
+- **Ordenada por `views` decrescente** (empate: `publishedAt` mais recente
+  primeiro).
+- **Só notícias `published`**, com ou sem token. Id inexistente, rascunho ou
+  arquivada é **omitido** da resposta: não vira `0` nem `404`. Um id pedido que
+  não voltou saiu da vitrine.
+
+**Erros**
+
+| Status | Corpo | Quando |
+|---|---|---|
+| `422` | `{ "ids": "idsInvalid" }` | `ids` ausente, vazio, ou com item que não é UUID |
+| `422` | `{ "ids": "idsTooMany" }` | mais de 100 ids distintos |
+
+Acima de 100 a requisição é **recusada**, não truncada: se a lista fosse cortada
+em silêncio, as notícias fora do corte pareceriam não ter contagem.
+
+### 4.7 `POST /news/:id/views` — público
+
+Registra **uma** leitura e devolve a contagem nova. Por **id** (não slug).
+
+- Sem corpo e sem token.
+- **Não é idempotente: cada chamada conta.** Chame uma vez por visita. Em React
+  18 com `StrictMode`, um efeito roda duas vezes em dev e conta duas visitas.
+- A soma é atômica no banco: chamadas simultâneas não perdem contagem.
+- Só notícia `published` conta. Rascunho e arquivada respondem `404`, como no
+  detalhe.
+- Registrar visita **não altera `updatedAt`**, que continua sendo a data da
+  última edição.
+
+**Response `200`**
+
+```json
+{ "id": "cbcfa8b8-3a25-4adb-a9c6-e325f0d0f3ae", "views": 43 }
+```
+
+**Erros**
+
+| Status | Corpo | Quando |
+|---|---|---|
+| `400` | — | `:id` não é UUID |
+| `404` | `{ "id": "newsNotFound" }` | inexistente, rascunho ou arquivada |
 
 ---
 
@@ -594,7 +673,9 @@ mensagens traduzidas, em vez de um erro genérico.
 | Método | Rota | Auth | Observação |
 |---|---|---|---|
 | `GET` | `/api/v1/news` | público | `?page&limit&category&tag&status&q`; `status` ignorado sem token |
-| `GET` | `/api/v1/news/:slug` | público | incrementa `views`; `404` para não publicada |
+| `GET` | `/api/v1/news/views` | público | `?ids=` (≤ 100); contagem atual, só publicadas; `no-store` |
+| `GET` | `/api/v1/news/:slug` | público | leitura pura; `404` para não publicada |
+| `POST` | `/api/v1/news/:id/views` | público | registra uma visita; devolve `{ id, views }` |
 | `POST` | `/api/v1/news` | autenticado | autor = usuário logado |
 | `PATCH` | `/api/v1/news/:id` | autor ou admin | |
 | `DELETE` | `/api/v1/news/:id` | autor ou admin | **arquiva** |
@@ -620,7 +701,9 @@ que o login já usa.
 |---|---|---|
 | `readOnlyField` | `author`, `views`, `publishedAt`, `newsCount`, `usageCount` | campo derivado do servidor; não envie |
 | `configTooLarge` | `config` | JSON acima de 16 KB |
-| `slugAlreadyExists` | `slug` | slug em uso |
+| `slugAlreadyExists` | `slug` | slug em uso — inclui `views`, reservado pela rota `GET /news/views` |
+| `idsInvalid` | `ids` | `GET /news/views`: `ids` ausente, vazio ou com item que não é UUID |
+| `idsTooMany` | `ids` | `GET /news/views`: mais de 100 ids |
 | `nameAlreadyExists` | `name` | nome de categoria/tag em uso |
 | `colorInvalidFormat` | `color` | fora de `#rgb`/`#rrggbb` |
 | `slugInvalidFormat` | `slug` | fora de `minusculas-com-hifen` |
@@ -628,7 +711,7 @@ que o login já usa.
 | `categoryNotFound` | `id` | categoria inexistente (`404`) |
 | `tagNotExists` | `tags` | id de tag inválido no payload da notícia |
 | `tagNotFound` | `id` | tag inexistente (`404`) |
-| `newsNotFound` | `id` / `slug` | notícia inexistente ou não publicada (`404`) |
+| `newsNotFound` | `id` / `slug` | notícia inexistente ou não publicada (`404`) — inclui `POST /news/:id/views` |
 | `imageNotExists` | `cover` | arquivo inexistente |
 | `cannotManageAnotherAuthorNews` | `id` | `403`: editar/excluir notícia de outro autor |
 | `cannotDeleteSelf` / `cannotDeleteLastAdmin` / `cannotDemoteLastAdmin` | `id` / `role` | travas de admin ([§10](#10-novidades-em-users-travas-de-admin)) |

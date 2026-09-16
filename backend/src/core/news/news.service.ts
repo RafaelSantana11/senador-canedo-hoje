@@ -2,7 +2,6 @@ import {
   ForbiddenException,
   HttpStatus,
   Injectable,
-  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -17,6 +16,7 @@ import { RoleEnum } from '../roles/roles.enum';
 import { TagsService } from '../tags/tags.service';
 import { User } from '../users/domain/user';
 import { News } from './domain/news';
+import { NewsViews } from './domain/news-views';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { QueryNewsDto } from './dto/query-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
@@ -30,10 +30,15 @@ import { NewsStatusEnum } from './news-status.enum';
 /** O que o service precisa saber de quem está chamando. */
 type Requester = Pick<User, 'id' | 'role'>;
 
+/**
+ * Slugs que colidem com rotas estáticas de `NewsController`. `GET /news/views`
+ * é declarada antes de `GET /news/:slug`, então uma notícia com slug `views`
+ * nunca seria alcançada pelo detalhe.
+ */
+const RESERVED_SLUGS = new Set(['views']);
+
 @Injectable()
 export class NewsService {
-  private readonly logger = new Logger(NewsService.name);
-
   constructor(
     private readonly newsRepository: NewsRepository,
     private readonly categoriesService: CategoriesService,
@@ -118,6 +123,10 @@ export class NewsService {
    * Detalhe por slug. Para o visitante, notícia não publicada simplesmente
    * **não existe** (`404`) — devolver `403` já contaria que existe rascunho com
    * aquele slug.
+   *
+   * ⚠️ Leitura pura: **não** incrementa `views`. O portal cacheia esta página,
+   * então contar aqui mediria regeneração de cache, não visita. A visita se
+   * registra em `registerView`.
    */
   async findBySlugOrFail({
     slug,
@@ -137,22 +146,42 @@ export class NewsService {
       });
     }
 
-    // Só acesso a notícia publicada conta: o autor abrindo o próprio rascunho
-    // dez vezes no painel não deve inflar a contagem que o portal exibe.
-    if (news.status === NewsStatusEnum.published) {
-      try {
-        await this.newsRepository.incrementViews(news.id);
-        news.views += 1;
-      } catch (error) {
-        // Contador não é motivo para derrubar a leitura da notícia.
-        this.logger.error(
-          `Falha ao incrementar views da notícia ${news.id}`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
+    return news;
+  }
+
+  /**
+   * Contagem atual de `views` de várias notícias, sem o resto do payload.
+   *
+   * Sempre a visão pública, com ou sem token: só `published` volta, e o que não
+   * volta é omitido em vez de virar `0` ou `404` — assim a resposta não conta
+   * que um rascunho com aquele id existe.
+   */
+  findViews(ids: News['id'][]): Promise<NewsViews[]> {
+    return this.newsRepository.findViewsByIds(ids, {
+      status: NewsStatusEnum.published,
+    });
+  }
+
+  /**
+   * Registra uma leitura. Só notícia publicada conta: o autor abrindo o próprio
+   * rascunho no painel não deve inflar a contagem que o portal exibe. Para o
+   * visitante, a não publicada não existe (`404`), como no detalhe.
+   */
+  async registerView(id: News['id']): Promise<NewsViews> {
+    const views = await this.newsRepository.incrementViews(id, {
+      status: NewsStatusEnum.published,
+    });
+
+    if (views === null) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        errors: {
+          id: 'newsNotFound',
+        },
+      });
     }
 
-    return news;
+    return { id, views };
   }
 
   async findByIdOrFail(id: News['id']): Promise<News> {
@@ -315,7 +344,7 @@ export class NewsService {
   }
 
   private async assertSlugIsFree(slug: string): Promise<string> {
-    if (await this.newsRepository.slugExists(slug)) {
+    if (await this.isSlugTaken(slug)) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         errors: {
@@ -327,6 +356,13 @@ export class NewsService {
     return slug;
   }
 
+  /** Em uso por outra notícia **ou** reservado por uma rota estática. */
+  private async isSlugTaken(slug: string): Promise<boolean> {
+    return (
+      RESERVED_SLUGS.has(slug) || (await this.newsRepository.slugExists(slug))
+    );
+  }
+
   /** `titulo-da-noticia`, `titulo-da-noticia-2`, ... */
   private async generateUniqueSlug(title: string): Promise<string> {
     const base = slugify(title ?? '') || 'noticia';
@@ -334,7 +370,7 @@ export class NewsService {
     let candidate = base;
     let suffix = 1;
 
-    while (await this.newsRepository.slugExists(candidate)) {
+    while (await this.isSlugTaken(candidate)) {
       suffix += 1;
       candidate = `${base}-${suffix}`;
     }

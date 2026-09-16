@@ -102,6 +102,42 @@ describe('News Module (painel)', () => {
       expect(body.errors).toEqual({ slug: 'slugAlreadyExists' });
     });
 
+    // `GET /news/views` é declarada antes de `GET /news/:slug`: uma notícia com
+    // slug `views` ficaria inalcançável pelo detalhe.
+    it('should reject the reserved slug views: /api/v1/news (POST)', async () => {
+      const { body } = await request(app)
+        .post('/api/v1/news')
+        .auth(ownerToken, { type: 'bearer' })
+        .send({
+          title: unique('Slug reservado'),
+          body: 'x',
+          slug: 'views',
+          category: { id: categoryId },
+        })
+        .expect(422);
+
+      expect(body.errors).toEqual({ slug: 'slugAlreadyExists' });
+    });
+
+    it('should reject the reserved slug views: /api/v1/news/:id (PATCH)', async () => {
+      const news = await createNews(ownerToken, { categoryId });
+
+      const { body } = await request(app)
+        .patch(`/api/v1/news/${news.id}`)
+        .auth(ownerToken, { type: 'bearer' })
+        .send({ slug: 'views' })
+        .expect(422);
+
+      expect(body.errors).toEqual({ slug: 'slugAlreadyExists' });
+    });
+
+    it('should never generate the reserved slug views: /api/v1/news (POST)', async () => {
+      const news = await createNews(ownerToken, { categoryId, title: 'Views' });
+
+      expect(news.slug).not.toBe('views');
+      expect(news.slug).toMatch(/^views-\d+$/);
+    });
+
     it('should reject a category that does not exist: /api/v1/news (POST)', () => {
       return request(app)
         .post('/api/v1/news')

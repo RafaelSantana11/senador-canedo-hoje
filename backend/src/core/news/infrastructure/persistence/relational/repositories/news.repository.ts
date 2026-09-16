@@ -8,6 +8,8 @@ import { AuthorEntity } from '../../../../../authors/infrastructure/persistence/
 import { CategoryEntity } from '../../../../../categories/infrastructure/persistence/relational/entities/category.entity';
 import { TagEntity } from '../../../../../tags/infrastructure/persistence/relational/entities/tag.entity';
 import { News } from '../../../../domain/news';
+import { NewsViews } from '../../../../domain/news-views';
+import { NewsStatusEnum } from '../../../../news-status.enum';
 import {
   CreateNewsData,
   FindManyNewsOptions,
@@ -179,10 +181,68 @@ export class NewsRelationalRepository implements NewsRepository {
     return count > 0;
   }
 
-  async incrementViews(id: News['id']): Promise<void> {
-    // `UPDATE ... SET views = views + 1` no banco: duas leituras simultâneas
-    // com ler-somar-gravar perderiam uma das contagens.
-    await this.newsRepository.increment({ id }, 'views', 1);
+  async findViewsByIds(
+    ids: News['id'][],
+    { status }: { status?: NewsStatusEnum } = {},
+  ): Promise<NewsViews[]> {
+    if (!ids.length) {
+      return [];
+    }
+
+    // Sem `leftJoinAndSelect`: a listagem carrega seis relações por notícia, e
+    // esta consulta existe justamente para não pagar por elas. O `SELECT` do
+    // QueryBuilder já exclui soft-deletados (`deletedAt IS NULL`).
+    const query = this.newsRepository
+      .createQueryBuilder('news')
+      .select(['news.id', 'news.views'])
+      .where('news.id IN (:...ids)', { ids })
+      .orderBy('news.views', 'DESC')
+      // Desempate determinístico: sem ele, notícias com a mesma contagem
+      // trocariam de lugar entre duas chamadas.
+      .addOrderBy('news.publishedAt', 'DESC', 'NULLS LAST')
+      .addOrderBy('news.id', 'ASC');
+
+    if (status) {
+      query.andWhere('news.status = :status', { status });
+    }
+
+    const entities = await query.getMany();
+
+    return entities.map(({ id, views }) => ({ id, views }));
+  }
+
+  async incrementViews(
+    id: News['id'],
+    { status }: { status?: NewsStatusEnum } = {},
+  ): Promise<number | null> {
+    // `UPDATE ... SET views = views + 1 ... RETURNING views` no banco: duas
+    // leituras simultâneas com ler-somar-gravar perderiam uma das contagens.
+    //
+    // ⚠️ `updatedAt` reescrito com ele mesmo de propósito. Sem isso o TypeORM
+    // acrescenta `updatedAt = CURRENT_TIMESTAMP` a qualquer UPDATE (inclusive
+    // ao `repository.increment`), e cada visita passaria a contar como edição —
+    // o front usa `updatedAt` como data de modificação no sitemap e no Open
+    // Graph.
+    const query = this.newsRepository
+      .createQueryBuilder()
+      .update(NewsEntity)
+      .set({
+        views: () => '"views" + 1',
+        updatedAt: () => '"updatedAt"',
+      })
+      .where('id = :id', { id })
+      // UPDATE do QueryBuilder não aplica o filtro de soft delete sozinho.
+      .andWhere('"deletedAt" IS NULL')
+      .returning(['views']);
+
+    if (status) {
+      query.andWhere('status = :status', { status });
+    }
+
+    const result = await query.execute();
+    const row = (result.raw as { views: number }[] | undefined)?.[0];
+
+    return row ? Number(row.views) : null;
   }
 
   private findEntityById(id: News['id']): Promise<NewsEntity | null> {

@@ -4,6 +4,7 @@ import { Author } from '../../../authors/domain/author';
 import { Category } from '../../../categories/domain/category';
 import { Tag } from '../../../tags/domain/tag';
 import { News } from '../../domain/news';
+import { NewsViews } from '../../domain/news-views';
 import { NewsStatusEnum } from '../../news-status.enum';
 
 export type CreateNewsData = {
@@ -64,8 +65,25 @@ export abstract class NewsRepository {
   abstract slugExists(slug: News['slug']): Promise<boolean>;
 
   /**
-   * Incremento **atômico** de `views` (`SET views = views + 1`). Ler-somar-
-   * gravar perderia contagem em acessos simultâneos.
+   * Só `id` e `views`, sem relação nenhuma — é a consulta que o cliente faz a
+   * cada refresh. Com `status`, ids de outro status ficam de fora; ids
+   * inexistentes nunca aparecem. Ordem: `views` decrescente.
    */
-  abstract incrementViews(id: News['id']): Promise<void>;
+  abstract findViewsByIds(
+    ids: News['id'][],
+    options?: { status?: NewsStatusEnum },
+  ): Promise<NewsViews[]>;
+
+  /**
+   * Incremento **atômico** de `views` (`SET views = views + 1`), num único
+   * statement que já filtra por `status` quando informado. Ler-somar-gravar
+   * perderia contagem em acessos simultâneos, e checar o status antes numa
+   * query separada abriria corrida entre a checagem e a soma.
+   *
+   * Devolve a contagem nova, ou `null` quando nenhuma linha casou.
+   */
+  abstract incrementViews(
+    id: News['id'],
+    options?: { status?: NewsStatusEnum },
+  ): Promise<number | null>;
 }
