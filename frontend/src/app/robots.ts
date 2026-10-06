@@ -8,6 +8,9 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin", "/admin/", "/login"],
     },
-    sitemap: absoluteSiteUrl("/sitemap-index.xml"),
+    sitemap: [
+      absoluteSiteUrl("/sitemap-index.xml"),
+      absoluteSiteUrl("/news-sitemap.xml"),
+    ],
   }
 }

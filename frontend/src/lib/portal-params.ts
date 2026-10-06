@@ -36,6 +36,13 @@ export const SAW_THIS_BLOCK_SIZE = 5
 export const RELATED_NEWS_COUNT = 3
 
 // ─────────────────────────────────────────────────────────────
+//  Arquivos — listagens de categoria e tag
+// ─────────────────────────────────────────────────────────────
+
+/** Notícias por página nos hubs `/categoria/[slug]` e `/tag/[slug]`. */
+export const ARCHIVE_PAGE_SIZE = 12
+
+// ─────────────────────────────────────────────────────────────
 //  API — limites de paginação
 // ─────────────────────────────────────────────────────────────
 
@@ -79,3 +86,20 @@ export const SHOW_NAME_WITH_LOGO = false
  *  links "Anuncie conosco" e "Entre em contato" do rodapé do portal.
  *  Ex.: 5562912345678 (55 + DDD 62 + número) */
 export const WHATSAPP_NUMBER = "556200000000"
+
+// ─────────────────────────────────────────────────────────────
+//  Identidade editorial — dados factuais (JSON-LD, feed e llms.txt)
+// ─────────────────────────────────────────────────────────────
+
+/** Cidade de atuação do portal (usada em `areaServed`/`address`). */
+export const SITE_CITY = "Senador Canedo"
+
+/** UF da cidade de atuação (usada em `addressRegion`). */
+export const SITE_REGION = "GO"
+
+/** País do portal no formato ISO 3166-1 alpha-2 (usado em `addressCountry`). */
+export const SITE_COUNTRY = "BR"
+
+/** Perfis oficiais do portal (redes sociais) publicados em `sameAs` no
+ *  JSON-LD. Vazio = bloco omitido. Ex.: "https://instagram.com/senadorcanedohoje" */
+export const SITE_SOCIAL_LINKS: string[] = []

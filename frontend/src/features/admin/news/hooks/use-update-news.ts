@@ -10,11 +10,22 @@ export function useUpdateNews() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<NewsPayload> }) =>
-      updateNews(id, payload),
-    onSuccess: () => {
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload: Partial<NewsPayload>
+    }) => updateNews(id, payload),
+    onSuccess: (news) => {
       queryClient.invalidateQueries({ queryKey: NEWS_KEY })
-      revalidatePortalCache(queryClient)
+      // `urls` avisa o IndexNow da URL exata; rascunho/arquivada não existe no
+      // portal público, então só a publicada entra no ping.
+      revalidatePortalCache(
+        queryClient,
+        undefined,
+        news.status === "published" ? [`/noticia/${news.slug}`] : undefined
+      )
     },
   })
 }

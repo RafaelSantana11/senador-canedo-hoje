@@ -7,6 +7,7 @@ import {
   absoluteMediaUrl,
   absoluteSiteUrl,
   defaultOpenGraphImage,
+  rssAlternateTypes,
 } from "@/lib/seo"
 import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
 import { DEFAULT_PORTAL_SETTINGS } from "@/features/portal/settings/types"
@@ -49,6 +50,9 @@ export async function generateMetadata({
       authors: [{ name: article.author.name }],
       alternates: {
         canonical: url,
+        // O merge raso do metadata substitui o bloco `alternates` do layout —
+        // repetir aqui mantém a descoberta do feed nas páginas de notícia.
+        types: rssAlternateTypes,
       },
       openGraph: {
         title: article.title,

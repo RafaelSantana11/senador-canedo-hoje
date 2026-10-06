@@ -1,16 +1,8 @@
 import { getSitemapIds } from "@/features/portal/home/services/sitemap-service"
 import { absoluteSiteUrl } from "@/lib/seo"
+import { escapeXml } from "@/lib/xml"
 
 export const revalidate = 3600
-
-function escapeXml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;")
-}
 
 // O Next não gera o índice automaticamente quando o sitemap usa
 // `generateSitemaps` — os arquivos ficam em /sitemap/[id].xml e este route

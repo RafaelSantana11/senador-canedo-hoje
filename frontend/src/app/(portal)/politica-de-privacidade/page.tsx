@@ -2,11 +2,18 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
 import { DEFAULT_PORTAL_SETTINGS } from "@/features/portal/settings/types"
+import { absoluteSiteUrl, rssAlternateTypes } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Política de Privacidade",
   description:
     "Como o Senador Canedo Hoje trata seus dados de navegação, em conformidade com a LGPD.",
+  // Sem `alternates` próprio a página herdaria o canonical da home; repetir o
+  // bloco do layout também preserva a descoberta do feed (merge raso).
+  alternates: {
+    canonical: absoluteSiteUrl("/politica-de-privacidade"),
+    types: rssAlternateTypes,
+  },
 }
 
 function Section({
@@ -102,8 +109,8 @@ export default async function PrivacyPolicyPage() {
         <Section title="4. Compartilhamento">
           <p>
             Os dados de medição são processados pelo Google, que atua como
-            operador e pode tratar informações em servidores fora do Brasil,
-            com as salvaguardas contratuais previstas na LGPD. O tratamento
+            operador e pode tratar informações em servidores fora do Brasil, com
+            as salvaguardas contratuais previstas na LGPD. O tratamento
             realizado pelo Google é descrito na{" "}
             <a
               href="https://policies.google.com/privacy"
@@ -128,8 +135,8 @@ export default async function PrivacyPolicyPage() {
 
         <Section title="6. Por quanto tempo guardamos">
           <p>
-            A sua escolha sobre cookies fica registrada por 365 dias. No GA4,
-            os dados de eventos seguem a retenção configurada na propriedade
+            A sua escolha sobre cookies fica registrada por 365 dias. No GA4, os
+            dados de eventos seguem a retenção configurada na propriedade
             (padrão de 14 meses) e são consultados apenas de forma agregada.
           </p>
         </Section>

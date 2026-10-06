@@ -62,7 +62,9 @@ export type ArticleView = {
   id: string
   title: string
   category: string
-  tags: { id: string; name: string; color?: string | null }[]
+  /** Slug da categoria — link para o hub `/categoria/[slug]`. */
+  categorySlug?: string
+  tags: { id: string; name: string; slug?: string; color?: string | null }[]
   author: string
   image: string
   urgent: boolean

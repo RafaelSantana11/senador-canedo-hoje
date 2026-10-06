@@ -9,16 +9,15 @@ export default async function PortalLayout({
 }: {
   children: React.ReactNode
 }) {
-  // O nome do portal é configurável (`SITE_NAME`) e alimenta o JSON-LD de
-  // Organization/WebSite de todas as páginas. Cache de 5 min; se as settings
-  // falharem, vale o default de build.
-  const { SITE_NAME: siteName } = await getCachedPublicSettings().catch(
+  // Nome/logo/contato do JSON-LD vêm da mesma fonte do header/footer (cache de
+  // 5 min); settings indisponível cai no default de build, como no root layout.
+  const settings = await getCachedPublicSettings().catch(
     () => DEFAULT_PORTAL_SETTINGS
   )
 
   return (
     <>
-      <JsonLd data={siteJsonLd(siteName)} />
+      <JsonLd data={siteJsonLd(settings)} />
       {children}
       <PortalFooter />
     </>

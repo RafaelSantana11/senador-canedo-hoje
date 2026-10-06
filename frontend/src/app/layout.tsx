@@ -16,6 +16,7 @@ import {
   absoluteSiteUrl,
   defaultOpenGraphImage,
   getMetadataBase,
+  rssAlternateTypes,
 } from "@/lib/seo"
 import { portalSettingsOptions } from "@/features/portal/settings/services/settings-options"
 import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
@@ -46,6 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
       "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
     alternates: {
       canonical: absoluteSiteUrl(),
+      types: rssAlternateTypes,
     },
     robots: {
       index: true,

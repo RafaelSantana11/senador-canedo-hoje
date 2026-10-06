@@ -10,11 +10,16 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<CategoryPayload> }) =>
-      updateCategory(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload: Partial<CategoryPayload>
+    }) => updateCategory(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY })
-      revalidatePortalCache(queryClient)
+      revalidatePortalCache(queryClient, ["categories"])
     },
   })
 }

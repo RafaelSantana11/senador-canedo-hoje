@@ -18,6 +18,7 @@ import {
   inContentAdPositions,
 } from "@/components/admin/news-editor/markdown-utils"
 import { AdBanner } from "@/features/portal/home/components/ad-banner"
+import { categoryPath, tagPath } from "@/features/portal/archive/utils/paths"
 import { assetPath } from "@/lib/utils"
 import { useRegisterNewsView } from "../hooks/use-register-news-view"
 import type { RelatedArticleView } from "../types/news"
@@ -28,7 +29,9 @@ interface ArticleData {
   id: string
   title: string
   category: string
-  tags?: { id: string; name: string; color?: string | null }[]
+  /** Slug da categoria — link para `/categoria/[slug]`. */
+  categorySlug?: string
+  tags?: { id: string; name: string; slug?: string; color?: string | null }[]
   author: string
   image: string
   urgent: boolean
@@ -44,6 +47,8 @@ interface ArticleData {
 interface ArticlePageProps {
   article: ArticleData
   related?: RelatedArticleView[]
+  /** Hubs exibidos no menu do topo (links reais para `/categoria/[slug]`). */
+  navCategories?: { name: string; slug: string }[]
   /** Preview mode renders the same layout without site chrome / real links. */
   preview?: boolean
 }
@@ -63,8 +68,6 @@ function readingTime(content: string): number {
   const words = content.trim() ? content.trim().split(/\s+/).length : 0
   return Math.max(1, Math.round(words / 200))
 }
-
-const navCategories = ["Política", "Economia", "Esportes"]
 
 /* ─── Instagram / Facebook embeds ────────────────────────────────── */
 
@@ -179,12 +182,14 @@ function FacebookIcon({ className }: { className?: string }) {
 export function ArticlePage({
   article,
   related = [],
+  navCategories = [],
   preview,
 }: ArticlePageProps) {
   const {
     id,
     title,
     category,
+    categorySlug,
     tags,
     author,
     image,
@@ -342,12 +347,13 @@ export function ArticlePage({
                 Início
               </Link>
               {navCategories.map((cat) => (
-                <span
-                  key={cat}
-                  className="cursor-pointer hover:text-foreground"
+                <Link
+                  key={cat.slug}
+                  href={categoryPath(cat.slug)}
+                  className="hover:text-foreground"
                 >
-                  {cat}
-                </span>
+                  {cat.name}
+                </Link>
               ))}
             </nav>
           </div>
@@ -368,9 +374,16 @@ export function ArticlePage({
             </Link>
           )}
           <ChevronRight className="h-3.5 w-3.5" />
-          <span className="cursor-pointer hover:text-foreground">
-            {category}
-          </span>
+          {preview || !categorySlug ? (
+            <span className="text-muted-foreground">{category}</span>
+          ) : (
+            <Link
+              href={categoryPath(categorySlug)}
+              className="hover:text-foreground"
+            >
+              {category}
+            </Link>
+          )}
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="truncate text-foreground">
             {title || "Título da matéria"}
@@ -382,19 +395,30 @@ export function ArticlePage({
           <span className="inline-flex items-center rounded-sm bg-primary px-2.5 py-1 text-xs font-semibold tracking-wide text-primary-foreground uppercase">
             {category}
           </span>
-          {tags?.map((t) => (
-            <span
-              key={t.id}
-              className="inline-flex items-center gap-1 rounded-sm border px-2.5 py-1 text-xs font-semibold"
-              style={{
-                backgroundColor: `${t.color || "#6366f1"}15`,
-                color: t.color || "inherit",
-                borderColor: `${t.color || "#6366f1"}40`,
-              }}
-            >
-              #{t.name}
-            </span>
-          ))}
+          {tags?.map((t) => {
+            const tagStyle = {
+              backgroundColor: `${t.color || "#6366f1"}15`,
+              color: t.color || "inherit",
+              borderColor: `${t.color || "#6366f1"}40`,
+            }
+            const tagClass =
+              "inline-flex items-center gap-1 rounded-sm border px-2.5 py-1 text-xs font-semibold"
+
+            return t.slug && !preview ? (
+              <Link
+                key={t.id}
+                href={tagPath(t.slug)}
+                style={tagStyle}
+                className={`${tagClass} transition-opacity hover:opacity-80`}
+              >
+                #{t.name}
+              </Link>
+            ) : (
+              <span key={t.id} style={tagStyle} className={tagClass}>
+                #{t.name}
+              </span>
+            )
+          })}
           {urgent && (
             <span className="inline-flex items-center gap-1 rounded-sm bg-destructive px-2.5 py-1 text-xs font-semibold tracking-wide text-white uppercase">
               <AlertCircle className="h-3 w-3" /> Urgente

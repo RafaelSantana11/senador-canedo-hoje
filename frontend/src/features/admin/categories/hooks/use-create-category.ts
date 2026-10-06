@@ -13,7 +13,7 @@ export function useCreateCategory() {
     mutationFn: (payload: CategoryPayload) => createCategory(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY })
-      revalidatePortalCache(queryClient)
+      revalidatePortalCache(queryClient, ["categories"])
     },
   })
 }

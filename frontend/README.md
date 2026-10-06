@@ -112,3 +112,27 @@ dimensão precisa ser registrada em Admin → Definições personalizadas).
 
 O evento `scroll_depth` (25/50/75/100%) é enviado **apenas na home**, via
 `HomeScrollTracker`. A página da matéria não rastreia scroll.
+
+## Descoberta e GEO (IA + buscadores)
+
+Rotas que existem só para máquina (cache curto + invalidação on-demand pelo admin):
+
+| Rota                  | O que é                                                                 |
+| --------------------- | ----------------------------------------------------------------------- |
+| `/feed.xml`           | RSS 2.0 com as últimas 50 notícias (5 min). Descoberto via `<link rel="alternate">` no `<head>` |
+| `/llms.txt`           | Guia do portal para LLMs: seções, últimas notícias, contato (5 min)     |
+| `/sitemap-index.xml`  | Índice dos sitemaps (1 h); `/sitemap/[id].xml` traz notícias + hubs     |
+| `/news-sitemap.xml`   | News sitemap (Google News): matérias das últimas 48 h (5 min)           |
+| `/robots.txt`         | Libera tudo menos `/admin` e `/login`; aponta os dois sitemaps          |
+
+O JSON-LD (Organization/`NewsMediaOrganization`, `NewsArticle`,
+`CollectionPage`/`ItemList`, breadcrumbs) é montado em `src/lib/structured-data.ts`.
+O admin invalida tudo na hora via `/api/revalidate` ao publicar/editar.
+
+### IndexNow (Bing/Copilot) — opcional
+
+Com `INDEXNOW_KEY` definida (string de 8-128 caracteres, ex.: `openssl rand -hex 16`),
+publicar uma notícia avisa o IndexNow na hora e a chave é servida em
+`/indexnow/<chave>.txt`. Sem a variável, o recurso fica desligado e nada quebra.
+Configure no host de produção (a mesma env vale para o ping e para o arquivo).
+

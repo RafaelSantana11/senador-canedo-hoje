@@ -15,7 +15,9 @@ import { JsonLd } from "@/components/seo/json-ld"
 import { absoluteSiteUrl } from "@/lib/seo"
 import { breadcrumbJsonLd, newsArticleJsonLd } from "@/lib/structured-data"
 import { serveBannersOptions } from "@/features/portal/home/services/banners-options"
+import { categoryPath } from "@/features/portal/archive/utils/paths"
 import {
+  getCachedPublicCategories,
   getCachedPublicSettings,
   getCachedServeBanners,
 } from "@/features/portal/home/services/portal-cache"
@@ -36,12 +38,19 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
   }
 
   // Parâmetros do portal: quantas relacionadas exibir (`RELATED_NEWS_COUNT`) e
-  // o nome do site (`SITE_NAME`), que alimenta o JSON-LD e a descrição padrão.
-  // Pede uma relacionada a mais porque a própria notícia pode voltar na
-  // listagem da categoria. Settings indisponível cai no default — recomendação
-  // e identidade são opcionais para a matéria abrir.
-  const { RELATED_NEWS_COUNT: relatedNewsCount, SITE_NAME: siteName } =
-    await getCachedPublicSettings().catch(() => DEFAULT_PORTAL_SETTINGS)
+  // o nome do site (`SITE_NAME`), usado na descrição padrão — a identidade do
+  // JSON-LD vem pelo `@id` da Organization publicada no layout do portal. As
+  // categorias viram o menu do topo (links para os hubs). Pede uma relacionada
+  // a mais porque a própria notícia pode voltar na listagem da categoria.
+  // Settings indisponível cai no default — recomendação e identidade são
+  // opcionais para a matéria abrir.
+  const [
+    { RELATED_NEWS_COUNT: relatedNewsCount, SITE_NAME: siteName },
+    categories,
+  ] = await Promise.all([
+    getCachedPublicSettings().catch(() => DEFAULT_PORTAL_SETTINGS),
+    getCachedPublicCategories().catch(() => null),
+  ])
 
   let related: RelatedArticleView[] = []
   try {
@@ -73,15 +82,26 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
 
   return (
     <>
-      <JsonLd data={newsArticleJsonLd(article, description, siteName)} />
+      <JsonLd data={newsArticleJsonLd(article, description)} />
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "Início", url: absoluteSiteUrl() },
+          {
+            name: article.category.name,
+            url: absoluteSiteUrl(categoryPath(article.category.slug)),
+          },
           { name: article.title, url },
         ])}
       />
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <ArticlePage article={toArticleView(article)} related={related} />
+        <ArticlePage
+          article={toArticleView(article)}
+          related={related}
+          navCategories={(categories?.data ?? []).map((item) => ({
+            name: item.name,
+            slug: item.slug,
+          }))}
+        />
       </HydrationBoundary>
     </>
   )

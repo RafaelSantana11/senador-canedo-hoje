@@ -1,7 +1,8 @@
 const defaultSiteUrl = "http://localhost:3001"
 
 function getBaseUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || defaultSiteUrl
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || defaultSiteUrl
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
   const url = new URL(configuredUrl)
 
@@ -38,4 +39,12 @@ export const defaultOpenGraphImage = {
   width: 1200,
   height: 630,
   alt: "Senador Canedo Hoje — Notícias em tempo real",
+}
+
+/** `alternates.types` com o feed RSS. O metadata do Next faz merge raso:
+ *  quando uma página define o próprio `alternates` (canonical), o bloco
+ *  inteiro do layout é substituído — por isso quem define canonical próprio
+ *  precisa espalhar esta descoberta de novo. */
+export const rssAlternateTypes = {
+  "application/rss+xml": absoluteSiteUrl("/feed.xml"),
 }

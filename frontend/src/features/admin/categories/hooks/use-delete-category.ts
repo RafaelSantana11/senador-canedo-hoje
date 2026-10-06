@@ -12,7 +12,7 @@ export function useDeleteCategory() {
     mutationFn: (id: string) => deleteCategory(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY })
-      revalidatePortalCache(queryClient)
+      revalidatePortalCache(queryClient, ["categories"])
     },
   })
 }
