@@ -21,6 +21,7 @@ import { AdBanner } from "@/features/portal/home/components/ad-banner"
 import { assetPath } from "@/lib/utils"
 import { useRegisterNewsView } from "../hooks/use-register-news-view"
 import type { RelatedArticleView } from "../types/news"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 interface ArticleData {
   /** Id da notícia — usado só para registrar a visita. */
@@ -195,6 +196,11 @@ export function ArticlePage({
     coverCredit,
   } = article
 
+  // Nome do portal configurável (`SITE_NAME`), hidratado pelo root layout.
+  const { SITE_NAME: siteName } = usePortalSettings()
+  const [siteNameLead, ...siteNameRest] = siteName.trim().split(/\s+/)
+  const siteNameTail = siteNameRest.join(" ")
+
   // Uma leitura = uma chamada. No preview do painel (`preview`) nada é contado.
   useRegisterNewsView(id, !preview)
 
@@ -295,7 +301,7 @@ export function ArticlePage({
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : ""
 
-  const shareText = encodeURIComponent(`${title} — Senador Canedo Hoje`)
+  const shareText = encodeURIComponent(`${title} — ${siteName}`)
   const shareHref = encodeURIComponent(shareUrl)
 
   const handleShareClick = () => {
@@ -326,7 +332,10 @@ export function ArticlePage({
         <header className="border-b border-border bg-background">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
             <Link href="/" className="text-lg font-bold tracking-tight">
-              Senador<span className="text-primary"> Canedo Hoje</span>
+              {siteNameLead}
+              {siteNameTail && (
+                <span className="text-primary"> {siteNameTail}</span>
+              )}
             </Link>
             <nav className="hidden gap-6 text-sm text-muted-foreground md:flex">
               <Link href="/" className="hover:text-foreground">

@@ -35,11 +35,13 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
     throw err
   }
 
-  // Quantas relacionadas exibir é parâmetro do portal (`RELATED_NEWS_COUNT`).
-  // Pede uma a mais porque a própria notícia pode voltar na listagem da
-  // categoria. Settings indisponível cai no default — recomendação é opcional.
-  const { RELATED_NEWS_COUNT: relatedNewsCount } = await getCachedPublicSettings()
-    .catch(() => DEFAULT_PORTAL_SETTINGS)
+  // Parâmetros do portal: quantas relacionadas exibir (`RELATED_NEWS_COUNT`) e
+  // o nome do site (`SITE_NAME`), que alimenta o JSON-LD e a descrição padrão.
+  // Pede uma relacionada a mais porque a própria notícia pode voltar na
+  // listagem da categoria. Settings indisponível cai no default — recomendação
+  // e identidade são opcionais para a matéria abrir.
+  const { RELATED_NEWS_COUNT: relatedNewsCount, SITE_NAME: siteName } =
+    await getCachedPublicSettings().catch(() => DEFAULT_PORTAL_SETTINGS)
 
   let related: RelatedArticleView[] = []
   try {
@@ -60,7 +62,7 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
   const description =
     article.summary?.trim() ||
     generateExcerpt(article.body, 160) ||
-    "Leia esta notícia no Senador Canedo Hoje."
+    `Leia esta notícia no ${siteName}.`
 
   // Banners vêm do mesmo cache de 5 min da home (`getCachedServeBanners`) e são
   // hidratados aqui para o AdBanner não chamar `banners/serve` no browser.
@@ -71,7 +73,7 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
 
   return (
     <>
-      <JsonLd data={newsArticleJsonLd(article, description)} />
+      <JsonLd data={newsArticleJsonLd(article, description, siteName)} />
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "Início", url: absoluteSiteUrl() },

@@ -8,6 +8,8 @@ import {
   absoluteSiteUrl,
   defaultOpenGraphImage,
 } from "@/lib/seo"
+import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
+import { DEFAULT_PORTAL_SETTINGS } from "@/features/portal/settings/types"
 
 // ISR on-demand: `generateStaticParams` vazio faz cada notícia ser renderizada
 // estaticamente na primeira visita (em vez de a cada request) e revalidada a
@@ -28,10 +30,16 @@ export async function generateMetadata({
   const { slug } = await params
   try {
     const article = await getNewsBySlug(slug)
+    // `SITE_NAME` configurável alimenta o siteName do OpenGraph e o fallback
+    // da descrição. Settings indisponível cai no default de build.
+    const { SITE_NAME: siteName } = await getCachedPublicSettings().catch(
+      () => DEFAULT_PORTAL_SETTINGS
+    )
     const url = absoluteSiteUrl(`/noticia/${article.slug}`)
     const description =
-      article.summary?.trim() || generateExcerpt(article.body, 160) ||
-      "Leia esta notícia no Senador Canedo Hoje."
+      article.summary?.trim() ||
+      generateExcerpt(article.body, 160) ||
+      `Leia esta notícia no ${siteName}.`
     const image = article.cover?.path
     const tags = article.tags.map((tag) => tag.name)
     return {
@@ -47,7 +55,7 @@ export async function generateMetadata({
         description,
         type: "article",
         url,
-        siteName: "Senador Canedo Hoje",
+        siteName,
         locale: "pt_BR",
         publishedTime: article.publishedAt ?? article.createdAt,
         modifiedTime: article.updatedAt,
@@ -57,7 +65,12 @@ export async function generateMetadata({
         // Capa quando existe; senão a imagem padrão do portal.
         images: image
           ? [{ url: absoluteMediaUrl(image), alt: article.title }]
-          : [defaultOpenGraphImage],
+          : [
+              {
+                ...defaultOpenGraphImage,
+                alt: `${siteName} — Notícias em tempo real`,
+              },
+            ],
       },
     }
   } catch (error) {

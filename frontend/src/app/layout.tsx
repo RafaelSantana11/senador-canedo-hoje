@@ -12,9 +12,14 @@ import { Providers } from "@/components/providers"
 import { AnalyticsProvider } from "@/components/analytics/analytics-provider"
 import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
-import { absoluteSiteUrl, defaultOpenGraphImage, getMetadataBase } from "@/lib/seo"
+import {
+  absoluteSiteUrl,
+  defaultOpenGraphImage,
+  getMetadataBase,
+} from "@/lib/seo"
 import { portalSettingsOptions } from "@/features/portal/settings/services/settings-options"
 import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
+import { DEFAULT_PORTAL_SETTINGS } from "@/features/portal/settings/types"
 
 const merriweatherHeading = Merriweather({
   subsets: ["latin"],
@@ -23,51 +28,65 @@ const merriweatherHeading = Merriweather({
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
-export const metadata: Metadata = {
-  metadataBase: getMetadataBase(),
-  title: {
-    default: "Senador Canedo Hoje — Notícias em tempo real",
-    template: "%s — Senador Canedo Hoje",
-  },
-  description:
-    "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
-  alternates: {
-    canonical: absoluteSiteUrl(),
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-  openGraph: {
-    type: "website",
-    locale: "pt_BR",
-    siteName: "Senador Canedo Hoje",
-    title: "Senador Canedo Hoje — Notícias em tempo real",
+export async function generateMetadata(): Promise<Metadata> {
+  // O nome do portal é configurável (`SITE_NAME`) e alimenta o <title> e o
+  // OpenGraph das páginas sem metadata própria. Mesmo cache de 5 min usado no
+  // prefetch abaixo; se as settings falharem, vale o default de build.
+  const { SITE_NAME: siteName } = await getCachedPublicSettings().catch(
+    () => DEFAULT_PORTAL_SETTINGS
+  )
+
+  return {
+    metadataBase: getMetadataBase(),
+    title: {
+      default: `${siteName} — Notícias em tempo real`,
+      template: `%s — ${siteName}`,
+    },
     description:
       "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
-    url: absoluteSiteUrl(),
-    images: [defaultOpenGraphImage],
-  },
-  generator: "v0.app",
-  // Metadata URLs are emitted verbatim — Next does not apply basePath here, so
-  // these need assetPath or the favicons 404 on a subpath deploy.
-  icons: {
-    icon: [
-      {
-        url: assetPath("/icon-light-32x32.png"),
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: assetPath("/icon-dark-32x32.png"),
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: assetPath("/icon.svg"),
-        type: "image/svg+xml",
-      },
-    ],
-    apple: assetPath("/apple-icon.png"),
-  },
+    alternates: {
+      canonical: absoluteSiteUrl(),
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName,
+      title: `${siteName} — Notícias em tempo real`,
+      description:
+        "Cobertura completa de política, economia, tecnologia, esportes e cultura. Jornalismo confiável e atualizado 24 horas por dia.",
+      url: absoluteSiteUrl(),
+      images: [
+        {
+          ...defaultOpenGraphImage,
+          alt: `${siteName} — Notícias em tempo real`,
+        },
+      ],
+    },
+    generator: "v0.app",
+    // Metadata URLs are emitted verbatim — Next does not apply basePath here, so
+    // these need assetPath or the favicons 404 on a subpath deploy.
+    icons: {
+      icon: [
+        {
+          url: assetPath("/icon-light-32x32.png"),
+          media: "(prefers-color-scheme: light)",
+        },
+        {
+          url: assetPath("/icon-dark-32x32.png"),
+          media: "(prefers-color-scheme: dark)",
+        },
+        {
+          url: assetPath("/icon.svg"),
+          type: "image/svg+xml",
+        },
+      ],
+      apple: assetPath("/apple-icon.png"),
+    },
+  }
 }
 
 export const viewport: Viewport = {

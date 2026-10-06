@@ -1,7 +1,5 @@
 import { absoluteMediaUrl, absoluteSiteUrl } from "./seo"
 
-export const SITE_NAME = "Senador Canedo Hoje"
-
 const SITE_LANGUAGE = "pt-BR"
 const PUBLISHER_LOGO = "/apple-icon.png"
 
@@ -17,8 +15,12 @@ type ArticleForJsonLd = {
   tags: { name: string }[]
 }
 
-/** Organization + WebSite, uma vez por página do portal (via `@graph`). */
-export function siteJsonLd() {
+/**
+ * Organization + WebSite, uma vez por página do portal (via `@graph`).
+ * `siteName` vem das configurações do portal (`SITE_NAME`) — nunca hardcode
+ * o nome aqui, senão o JSON-LD diverge do que o admin configurou.
+ */
+export function siteJsonLd(siteName: string) {
   const organizationId = absoluteSiteUrl("/#organization")
 
   return {
@@ -27,7 +29,7 @@ export function siteJsonLd() {
       {
         "@type": "Organization",
         "@id": organizationId,
-        name: SITE_NAME,
+        name: siteName,
         url: absoluteSiteUrl(),
         logo: {
           "@type": "ImageObject",
@@ -37,7 +39,7 @@ export function siteJsonLd() {
       {
         "@type": "WebSite",
         "@id": absoluteSiteUrl("/#website"),
-        name: SITE_NAME,
+        name: siteName,
         url: absoluteSiteUrl(),
         inLanguage: SITE_LANGUAGE,
         publisher: { "@id": organizationId },
@@ -48,7 +50,8 @@ export function siteJsonLd() {
 
 export function newsArticleJsonLd(
   article: ArticleForJsonLd,
-  description: string
+  description: string,
+  siteName: string
 ) {
   const url = absoluteSiteUrl(`/noticia/${article.slug}`)
 
@@ -67,7 +70,7 @@ export function newsArticleJsonLd(
     author: { "@type": "Person", name: article.author.name },
     publisher: {
       "@type": "Organization",
-      name: SITE_NAME,
+      name: siteName,
       logo: {
         "@type": "ImageObject",
         url: absoluteSiteUrl(PUBLISHER_LOGO),
