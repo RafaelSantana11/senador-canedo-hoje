@@ -6,8 +6,9 @@ import type { NewsDetail, NewsListResponse } from "../types/news"
 // a visão anônima (só `published` volta).
 //
 // `cache()` deduplica dentro do mesmo request: `generateMetadata` e a página
-// chamam este service duas vezes, mas o HTTP sai uma só — o que também evita
-// contar `views` em dobro (o GET /news/:slug incrementa o contador).
+// chamam este service duas vezes, mas o HTTP sai uma só. A contagem de visitas
+// não depende mais daqui — `GET /news/:slug` é leitura pura e idempotente, e a
+// visita se registra em `POST /news/:id/views` (ver `useRegisterNewsView`).
 export const getNewsBySlug = cache(async (slug: string): Promise<NewsDetail> => {
   const { data } = await publicApi.get<NewsDetail>(
     `news/${encodeURIComponent(slug)}`,

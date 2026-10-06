@@ -11,8 +11,8 @@ import { Search, WifiOff, RefreshCw } from "lucide-react"
 import { SearchProvider, useSearch } from "../contexts/search-context"
 import { CategoryProvider } from "../contexts/category-context"
 import { NewsFeedProvider, useNewsFeed } from "../contexts/news-feed-context"
-import { MIN_NEWS_FOR_MIDDLE_BANNER } from "@/lib/portal-params"
 import { useQueryClient } from "@tanstack/react-query"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
   const { searchQuery, setSearchQuery } = useSearch()
@@ -64,6 +64,8 @@ function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
 
 function HomePageContent() {
   const queryClient = useQueryClient()
+  const { MIN_NEWS_FOR_MIDDLE_BANNER: minNewsForMiddleBanner } =
+    usePortalSettings()
   const { isLoading: newsLoading, allNews, isError: newsError } = useNewsFeed()
 
   // Categorias e banners não bloqueiam a home: cada um degrada no seu próprio
@@ -74,7 +76,7 @@ function HomePageContent() {
   const hasError = newsError && allNews.length === 0
 
   // Banner no meio do conteúdo só aparece com acervo razoavelmente cheio.
-  const showMiddleBanner = allNews.length >= MIN_NEWS_FOR_MIDDLE_BANNER
+  const showMiddleBanner = allNews.length >= minNewsForMiddleBanner
 
   return (
     <div className="min-h-screen">

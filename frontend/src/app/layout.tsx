@@ -1,5 +1,11 @@
 import { Inter, Merriweather } from "next/font/google"
 import type { Metadata, Viewport } from "next"
+import {
+  dehydrate,
+  HydrationBoundary,
+  QueryClient,
+  noop,
+} from "@tanstack/react-query"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "@/components/providers"
@@ -7,6 +13,8 @@ import { AnalyticsProvider } from "@/components/analytics/analytics-provider"
 import { assetPath, cn } from "@/lib/utils"
 import { Toaster } from "sonner"
 import { absoluteSiteUrl, defaultOpenGraphImage, getMetadataBase } from "@/lib/seo"
+import { portalSettingsOptions } from "@/features/portal/settings/services/settings-options"
+import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
 
 const merriweatherHeading = Merriweather({
   subsets: ["latin"],
@@ -67,11 +75,21 @@ export const viewport: Viewport = {
   themeColor: "#0b2a5b",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Parâmetros do portal (nome, logo, WhatsApp, contato e as contagens da home)
+  // já chegam no HTML: a query é hidratada com o cache de 5 min do servidor, e
+  // header, footer, home, login e painel leem a mesma fonte — sem flash do nome
+  // padrão e sem request por componente. Falha aqui não derruba a página: o
+  // client refaz a busca e, até ela chegar, valem os defaults de build.
+  const queryClient = new QueryClient()
+  await queryClient
+    .prefetchQuery(portalSettingsOptions(getCachedPublicSettings))
+    .catch(noop)
+
   return (
     <html
       lang="pt-BR"
@@ -85,7 +103,9 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Toaster position="top-center" richColors />
         <Providers>
-          <ThemeProvider>{children}</ThemeProvider>
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <ThemeProvider>{children}</ThemeProvider>
+          </HydrationBoundary>
         </Providers>
         {/* GA4 + banner de consentimento (LGPD). Só carrega em produção. */}
         <AnalyticsProvider />

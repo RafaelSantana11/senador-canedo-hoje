@@ -8,13 +8,14 @@ import { useNewsFeed } from "../contexts/news-feed-context"
 import { formatRelativeTime } from "../utils/format-relative-time"
 import { readUrgent, type PublicNews } from "../types/news"
 import { cn } from "@/lib/utils"
-import { SAW_THIS_BLOCK_SIZE } from "@/lib/portal-params"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 const NEW_ITEM_CLASS =
   "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300 motion-safe:ease-out motion-safe:fill-mode-both"
 
 export function NewsSidebar() {
   const { sections } = useNewsFeed()
+  const { SAW_THIS_BLOCK_SIZE: sawThisBlockSize } = usePortalSettings()
   const { mostRead, latest, sawThis, sawThisStableCount } = sections
 
   // "Viu isso?": a primeira página define os blocos (divisão equilibrada, até
@@ -30,7 +31,7 @@ export function NewsSidebar() {
   }
 
   const stableSawThis = sawThis.slice(0, sawThisStableCount)
-  const numBlocks = Math.ceil(stableSawThis.length / SAW_THIS_BLOCK_SIZE)
+  const numBlocks = Math.ceil(stableSawThis.length / sawThisBlockSize)
   if (numBlocks > 0) {
     const base = Math.floor(stableSawThis.length / numBlocks)
     const remainder = stableSawThis.length % numBlocks
@@ -43,7 +44,7 @@ export function NewsSidebar() {
   }
   for (const article of sawThis.slice(sawThisStableCount)) {
     const lastBlock = sawThisBlocks[sawThisBlocks.length - 1]
-    if (!lastBlock || lastBlock.length >= SAW_THIS_BLOCK_SIZE) {
+    if (!lastBlock || lastBlock.length >= sawThisBlockSize) {
       pushSawThisBlock([article])
     } else {
       lastBlock.push(article)

@@ -73,14 +73,34 @@ export type HomeSections = {
   sawThisStableCount: number
 }
 
+export type HomeSectionsOptions = {
+  /** Cards ao lado do destaque. Default: `HERO_SECONDARY_COUNT`. */
+  heroSecondaryCount?: number
+  /** Itens de "Mais lidas". Default: `MOST_READ_COUNT`. */
+  mostReadCount?: number
+  /** Itens de "Últimas notícias". Default: `LATEST_COUNT`. */
+  latestCount?: number
+  /**
+   * Contagem de views a considerar. O `views` da listagem é o retrato do
+   * momento em que ela foi gerada; a home passa uma função que consulta a
+   * contagem atual (`GET /news/views`) antes de ordenar "Mais lidas".
+   */
+  viewsOf?: (news: PublicNews) => number
+}
+
 /**
  * Deriva todas as seções da home de uma única listagem publicada, na ordem
  * editorial: hero → secundárias → grade → mais lidas → últimas.
  */
 export function selectHomeSections(
   list: PublicNews[],
-  stableList: PublicNews[] = list
+  stableList: PublicNews[] = list,
+  options: HomeSectionsOptions = {}
 ): HomeSections {
+  const heroSecondaryCount = options.heroSecondaryCount ?? HERO_SECONDARY_COUNT
+  const mostReadCount = options.mostReadCount ?? MOST_READ_COUNT
+  const latestCount = options.latestCount ?? LATEST_COUNT
+  const viewsOf = options.viewsOf ?? ((news: PublicNews) => news.views)
   // As marcadas como "lateral" ("Viu isso?") saem do feed geral e das
   // "últimas": o pool "recent" usado pelas seções de conteúdo já as exclui.
   const recent = sortRecent(
@@ -101,7 +121,7 @@ export function selectHomeSections(
   const heroSecondary = fillFrom(
     [slotItems(stableList, "topo"), stableRecent],
     heroIds,
-    HERO_SECONDARY_COUNT
+    heroSecondaryCount
   )
 
   const layoutIds = new Set([
@@ -137,13 +157,13 @@ export function selectHomeSections(
   ]
 
   const mostRead = fillFrom(
-    [[...stableList].sort((a, b) => b.views - a.views)],
+    [[...stableList].sort((a, b) => viewsOf(b) - viewsOf(a))],
     new Set<string>(),
-    MOST_READ_COUNT
+    mostReadCount
   )
   // "Últimas notícias": agora apenas as realmente recentes. As marcadas como
   // "lateral" deixaram de ser pinadas aqui e ganharam a seção própria "Viu isso?".
-  const latest = fillFrom([stableRecent], new Set(heroIds), LATEST_COUNT)
+  const latest = fillFrom([stableRecent], new Set(heroIds), latestCount)
   // "Viu isso?": matérias marcadas como "lateral", na ordem definida no painel.
   const stableLateralIds = new Set(stableList.map((article) => article.id))
   const stableLateral = slotItems(stableList, "lateral")

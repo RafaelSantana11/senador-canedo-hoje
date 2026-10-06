@@ -19,9 +19,12 @@ import {
 } from "@/components/admin/news-editor/markdown-utils"
 import { AdBanner } from "@/features/portal/home/components/ad-banner"
 import { assetPath } from "@/lib/utils"
+import { useRegisterNewsView } from "../hooks/use-register-news-view"
 import type { RelatedArticleView } from "../types/news"
 
 interface ArticleData {
+  /** Id da notícia — usado só para registrar a visita. */
+  id: string
   title: string
   category: string
   tags?: { id: string; name: string; color?: string | null }[]
@@ -178,6 +181,7 @@ export function ArticlePage({
   preview,
 }: ArticlePageProps) {
   const {
+    id,
     title,
     category,
     tags,
@@ -190,6 +194,9 @@ export function ArticlePage({
     coverCaption,
     coverCredit,
   } = article
+
+  // Uma leitura = uma chamada. No preview do painel (`preview`) nada é contado.
+  useRegisterNewsView(id, !preview)
 
   const rootRef = useRef<HTMLDivElement>(null)
 

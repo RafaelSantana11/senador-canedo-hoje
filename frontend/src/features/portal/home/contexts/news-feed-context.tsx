@@ -7,6 +7,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useInfinitePortalNews } from "../hooks/use-infinite-news"
 import {
   selectHomeSections,
@@ -14,9 +15,11 @@ import {
   type HomeSections,
 } from "../utils/showcase"
 import { filterByQuery } from "../utils/filter-by-query"
+import { newsViewsOptions } from "../services/news-views-options"
 import type { PublicNews } from "../types/news"
 import { useSelectedCategory } from "./category-context"
 import { useSearch } from "./search-context"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 type NewsFeedContextValue = {
   /** Todas as notícias já carregadas (todas as páginas), filtradas por busca/categoria. */
@@ -40,6 +43,11 @@ const NewsFeedContext = createContext<NewsFeedContextValue | null>(null)
 export function NewsFeedProvider({ children }: { children: ReactNode }) {
   const { selectedSlug } = useSelectedCategory()
   const { searchQuery } = useSearch()
+  const {
+    HERO_SECONDARY_COUNT: heroSecondaryCount,
+    LATEST_COUNT: latestCount,
+    MOST_READ_COUNT: mostReadCount,
+  } = usePortalSettings()
 
   const infinite = useInfinitePortalNews(
     selectedSlug ? { category: selectedSlug } : {}
@@ -78,9 +86,38 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
     [firstPage, searchQuery]
   )
 
+  // "Mais lidas": o `views` que vem na listagem é o retrato do momento em que
+  // ela foi gerada e congela junto com o cache. A contagem atual chega desta
+  // query — hidratada do SSR na primeira carga da home, buscada no client
+  // quando o pool muda (troca de categoria, por exemplo).
+  const candidateIds = useMemo(
+    () => stableNews.map((news) => news.id),
+    [stableNews]
+  )
+  const views = useQuery(newsViewsOptions(candidateIds))
+  const viewsById = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const item of views.data ?? []) map.set(item.id, item.views)
+    return map
+  }, [views.data])
+
   const sections = useMemo(
-    () => selectHomeSections(allNews, stableNews),
-    [allNews, stableNews]
+    () =>
+      selectHomeSections(allNews, stableNews, {
+        heroSecondaryCount,
+        latestCount,
+        mostReadCount,
+        // Sem contagem atual para um id, vale o retrato da listagem.
+        viewsOf: (news) => viewsById.get(news.id) ?? news.views,
+      }),
+    [
+      allNews,
+      stableNews,
+      viewsById,
+      heroSecondaryCount,
+      latestCount,
+      mostReadCount,
+    ]
   )
 
   const loadedPages = pages?.length ?? 0

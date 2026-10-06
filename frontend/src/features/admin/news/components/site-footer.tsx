@@ -1,9 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { WHATSAPP_NUMBER } from "@/lib/portal-params"
 import { openConsentPreferences } from "@/lib/consent"
-import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 const contactLinks = [
   {
@@ -16,14 +15,22 @@ const contactLinks = [
   },
 ]
 
-function waLink(message: string) {
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
-}
+const LINK_CLASS =
+  "text-primary-foreground/80 transition-colors hover:text-primary-foreground"
 
 export function SiteFooter() {
-  const siteName = useSiteIdentityStore((s) => s.name)
-  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
-  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
+  const {
+    SITE_NAME: siteName,
+    LOGO,
+    LOGO_ALT: logoAlt,
+    WHATSAPP_NUMBER: whatsappNumber,
+    CONTACT_EMAIL: contactEmail,
+  } = usePortalSettings()
+  const logoUrl = LOGO?.path ?? ""
+
+  function waLink(message: string) {
+    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
+  }
 
   return (
     <footer className="border-t border-black/10 bg-primary text-primary-foreground">
@@ -49,21 +56,23 @@ export function SiteFooter() {
               href={waLink(link.message)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-foreground/80 transition-colors hover:text-primary-foreground"
+              className={LINK_CLASS}
             >
               {link.label}
             </a>
           ))}
-          <Link
-            href="/politica-de-privacidade"
-            className="text-primary-foreground/80 transition-colors hover:text-primary-foreground"
-          >
+          {contactEmail && (
+            <a href={`mailto:${contactEmail}`} className={LINK_CLASS}>
+              {contactEmail}
+            </a>
+          )}
+          <Link href="/politica-de-privacidade" className={LINK_CLASS}>
             política de privacidade
           </Link>
           <button
             type="button"
             onClick={openConsentPreferences}
-            className="cursor-pointer text-primary-foreground/80 transition-colors hover:text-primary-foreground"
+            className={`cursor-pointer ${LINK_CLASS}`}
           >
             gerenciar cookies
           </button>

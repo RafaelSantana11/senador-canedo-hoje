@@ -50,8 +50,16 @@ export type NewsListResponse = {
   hasNextPage: boolean
 }
 
+/** Contagem de leituras devolvida por `GET /news/views` e `POST /news/:id/views`. */
+export type NewsViewCount = {
+  id: string
+  views: number
+}
+
 /** View model do corpo da página — o que `ArticlePage` renderiza. */
 export type ArticleView = {
+  /** Necessário para registrar a visita (`POST /news/:id/views`). */
+  id: string
   title: string
   category: string
   tags: { id: string; name: string; color?: string | null }[]

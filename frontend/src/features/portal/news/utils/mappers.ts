@@ -17,6 +17,7 @@ function readString(
 /** Mapeia a notícia da API para o que a página renderiza. */
 export function toArticleView(news: NewsDetail): ArticleView {
   return {
+    id: news.id,
     title: news.title,
     category: news.category.name,
     tags: news.tags.map(({ id, name, color }) => ({ id, name, color })),

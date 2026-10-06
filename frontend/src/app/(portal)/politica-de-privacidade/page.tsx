@@ -1,16 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { WHATSAPP_NUMBER } from "@/lib/portal-params"
+import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
+import { DEFAULT_PORTAL_SETTINGS } from "@/features/portal/settings/types"
 
 export const metadata: Metadata = {
   title: "Política de Privacidade",
   description:
     "Como o Senador Canedo Hoje trata seus dados de navegação, em conformidade com a LGPD.",
 }
-
-const WHATSAPP_PRIVACY_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-  "Olá! Tenho uma dúvida sobre a Política de Privacidade do Senador Canedo Hoje."
-)}`
 
 function Section({
   title,
@@ -27,7 +24,16 @@ function Section({
   )
 }
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  // O contato do rodapé/WhatsApp é parâmetro do portal; settings indisponível
+  // cai no default de build.
+  const { WHATSAPP_NUMBER: whatsappNumber } =
+    await getCachedPublicSettings().catch(() => DEFAULT_PORTAL_SETTINGS)
+
+  const whatsappPrivacyLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+    "Olá! Tenho uma dúvida sobre a Política de Privacidade do Senador Canedo Hoje."
+  )}`
+
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10">
       <Link
@@ -138,7 +144,7 @@ export default function PrivacyPolicyPage() {
           <p>
             Para exercer os demais direitos, fale com a nossa equipe pelo{" "}
             <a
-              href={WHATSAPP_PRIVACY_LINK}
+              href={whatsappPrivacyLink}
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline underline-offset-4 hover:text-primary"

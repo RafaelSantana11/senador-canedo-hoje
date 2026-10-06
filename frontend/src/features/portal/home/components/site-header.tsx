@@ -9,7 +9,7 @@ import { usePortalCategories } from "../hooks/use-categories"
 import { useSelectedCategory } from "../contexts/category-context"
 import { useSearch } from "../contexts/search-context"
 import { cn } from "@/lib/utils"
-import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 const ALL_NEWS_ITEM = { id: "__all__", name: "Notícias", slug: null }
 
@@ -18,10 +18,13 @@ type SearchFormData = {
 }
 
 export function SiteHeader() {
-  const siteName = useSiteIdentityStore((s) => s.name)
-  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
-  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
-  const showNameWithLogo = useSiteIdentityStore((s) => s.showNameWithLogo)
+  const {
+    SITE_NAME: siteName,
+    LOGO,
+    LOGO_ALT: logoAlt,
+    SHOW_NAME_WITH_LOGO: showNameWithLogo,
+  } = usePortalSettings()
+  const logoUrl = LOGO?.path ?? ""
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const { data } = usePortalCategories()

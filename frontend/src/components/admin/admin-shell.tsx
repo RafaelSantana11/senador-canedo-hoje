@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 import { Button } from "@/components/ui/button"
 import {
   Avatar,
@@ -50,9 +50,12 @@ const settingsSubNav = [
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const siteName = useSiteIdentityStore((s) => s.name)
-  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
-  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
+  const {
+    SITE_NAME: siteName,
+    LOGO,
+    LOGO_ALT: logoAlt,
+  } = usePortalSettings()
+  const logoUrl = LOGO?.path ?? ""
   const user = useAuthStore((state) => state.user)
   const hasSession = useAuthStore((state) => Boolean(state.refreshToken))
   const [ready, setReady] = useState(false)

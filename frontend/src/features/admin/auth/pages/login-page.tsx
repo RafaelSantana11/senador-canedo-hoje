@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { assetPath } from "@/lib/utils"
-import { useSiteIdentityStore } from "@/stores/useSiteIdentityStore"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useLogin } from "../hooks/use-login"
 import type { LoginPayload } from "../types/auth"
@@ -30,9 +30,12 @@ const FIELD_MESSAGES: Record<string, string> = {
 
 export default function LoginPage() {
   const router = useRouter()
-  const siteName = useSiteIdentityStore((s) => s.name)
-  const logoUrl = useSiteIdentityStore((s) => s.logoUrl)
-  const logoAlt = useSiteIdentityStore((s) => s.logoAlt)
+  const {
+    SITE_NAME: siteName,
+    LOGO,
+    LOGO_ALT: logoAlt,
+  } = usePortalSettings()
+  const logoUrl = LOGO?.path ?? ""
   const { mutate, isPending, error } = useLogin()
   const token = useAuthStore((state) => state.token)
   const refreshToken = useAuthStore((state) => state.refreshToken)

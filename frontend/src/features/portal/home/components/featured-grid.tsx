@@ -11,7 +11,7 @@ import { readUrgent, type PublicNews } from "../types/news"
 import { assetPath, cn } from "@/lib/utils"
 import { AdBanner } from "./ad-banner"
 import { InfiniteNewsFooter } from "./infinite-news-footer"
-import { BANNER_INTERVAL } from "@/lib/portal-params"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
 // Escalona a entrada dos cards em passos curtos e previsíveis (0/50/100/150ms),
 // sempre com fill-mode para o card não "piscar" durante o atraso. O delay é
@@ -87,14 +87,15 @@ export function FeaturedGrid({
   showMiddleBanner?: boolean
 }) {
   const { sections } = useNewsFeed()
+  const { BANNER_INTERVAL: bannerInterval } = usePortalSettings()
   const { featured } = sections
 
   if (featured.length === 0) return null
 
   // Divide a lista em blocos e intercala um banner "middle" entre eles.
   const blocks: PublicNews[][] = []
-  for (let i = 0; i < featured.length; i += BANNER_INTERVAL) {
-    blocks.push(featured.slice(i, i + BANNER_INTERVAL))
+  for (let i = 0; i < featured.length; i += bannerInterval) {
+    blocks.push(featured.slice(i, i + bannerInterval))
   }
 
   return (

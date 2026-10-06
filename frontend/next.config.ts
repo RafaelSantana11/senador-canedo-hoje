@@ -8,6 +8,16 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
 
 const nextConfig: NextConfig = {
   ...(basePath && { basePath, assetPrefix: basePath }),
+  // O Next infere o workspace root subindo a árvore de diretórios até achar um
+  // lockfile (pnpm-lock.yaml, package-lock.json, yarn.lock, bun.lock). Se existir
+  // um lockfile solto acima do projeto (ex.: na home do usuário), a inferência
+  // erra a raiz e o Turbopack passa a escanear/apontar para o diretório errado.
+  // Fixar em `frontend/` deixa o comportamento determinístico em qualquer máquina.
+  // `__dirname` está disponível aqui porque o `next.config.ts` é transpilado para
+  // CommonJS antes de ser carregado.
+  turbopack: {
+    root: __dirname,
+  },
   images: {
     remotePatterns: [
       {

@@ -1,18 +1,15 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  BANNER_INTERVAL,
-  HERO_SECONDARY_COUNT,
-  LATEST_COUNT,
-  MOST_READ_COUNT,
-  SAW_THIS_BLOCK_SIZE,
-} from "@/lib/portal-params"
+import { usePortalSettings } from "@/features/portal/settings/hooks/use-portal-settings"
 
-function HeroSkeleton() {
+// O skeleton acompanha as contagens configuradas (settings) para o layout
+// reservado bater com o conteúdo real.
+
+function HeroSkeleton({ secondaryCount }: { secondaryCount: number }) {
   return (
     <section className="grid gap-6 lg:grid-cols-3" aria-hidden>
       <Skeleton className="col-span-1 aspect-[16/9] rounded-2xl lg:col-span-2 lg:aspect-auto lg:min-h-[430px]" />
       <div className="flex flex-col gap-6">
-        {Array.from({ length: HERO_SECONDARY_COUNT }).map((_, i) => (
+        {Array.from({ length: secondaryCount }).map((_, i) => (
           <Skeleton
             key={i}
             className="h-40 flex-1 rounded-2xl lg:h-full lg:min-h-[9rem]"
@@ -50,7 +47,15 @@ function FeaturedBlockSkeleton({ count }: { count: number }) {
   )
 }
 
-function SidebarSkeleton() {
+function SidebarSkeleton({
+  mostReadCount,
+  latestCount,
+  sawThisBlockSize,
+}: {
+  mostReadCount: number
+  latestCount: number
+  sawThisBlockSize: number
+}) {
   return (
     <aside className="flex flex-col gap-8" aria-hidden>
       <div className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border">
@@ -59,7 +64,7 @@ function SidebarSkeleton() {
           <Skeleton className="h-5 w-24 bg-primary-foreground/20" />
         </div>
         <div className="divide-y divide-border">
-          {Array.from({ length: MOST_READ_COUNT }).map((_, i) => (
+          {Array.from({ length: mostReadCount }).map((_, i) => (
             <div key={i} className="flex items-start gap-3.5 px-5 py-4">
               <Skeleton className="mt-1 size-7 shrink-0 rounded-full" />
               <div className="flex-1 space-y-2">
@@ -79,7 +84,7 @@ function SidebarSkeleton() {
           <Skeleton className="h-5 w-36" />
         </div>
         <div className="divide-y divide-border">
-          {Array.from({ length: LATEST_COUNT }).map((_, i) => (
+          {Array.from({ length: latestCount }).map((_, i) => (
             <div key={i} className="px-5 py-4">
               <Skeleton className="h-2.5 w-20" />
               <Skeleton className="mt-2 h-4 w-full" />
@@ -95,7 +100,7 @@ function SidebarSkeleton() {
           <Skeleton className="h-5 w-20" />
         </div>
         <div className="divide-y divide-border">
-          {Array.from({ length: SAW_THIS_BLOCK_SIZE }).map((_, i) => (
+          {Array.from({ length: sawThisBlockSize }).map((_, i) => (
             <div key={i} className="px-5 py-4">
               <Skeleton className="h-2.5 w-16" />
               <Skeleton className="mt-2 h-4 w-full" />
@@ -109,6 +114,14 @@ function SidebarSkeleton() {
 }
 
 export function HomePageSkeleton() {
+  const {
+    BANNER_INTERVAL: bannerInterval,
+    HERO_SECONDARY_COUNT: heroSecondaryCount,
+    LATEST_COUNT: latestCount,
+    MOST_READ_COUNT: mostReadCount,
+    SAW_THIS_BLOCK_SIZE: sawThisBlockSize,
+  } = usePortalSettings()
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8" aria-busy>
       <p role="status" className="sr-only">
@@ -117,12 +130,12 @@ export function HomePageSkeleton() {
 
       <Skeleton className="mb-8 h-24 w-full rounded-xl sm:h-28" />
 
-      <HeroSkeleton />
+      <HeroSkeleton secondaryCount={heroSecondaryCount} />
 
       <div className="mt-12 grid gap-10 lg:grid-cols-3">
         <div className="flex flex-col gap-12 lg:col-span-2">
           <div className="flex flex-col gap-6">
-            <FeaturedBlockSkeleton count={BANNER_INTERVAL} />
+            <FeaturedBlockSkeleton count={bannerInterval} />
             <Skeleton className="h-40 w-full rounded-xl sm:h-44" />
             <FeaturedBlockSkeleton count={4} />
           </div>
@@ -130,7 +143,11 @@ export function HomePageSkeleton() {
         </div>
 
         <div className="lg:col-span-1">
-          <SidebarSkeleton />
+          <SidebarSkeleton
+            mostReadCount={mostReadCount}
+            latestCount={latestCount}
+            sawThisBlockSize={sawThisBlockSize}
+          />
         </div>
       </div>
     </main>

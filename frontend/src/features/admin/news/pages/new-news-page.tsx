@@ -165,6 +165,8 @@ function NewsEditor({
   )
 
   const previewArticle = {
+    // Preview do painel nunca registra visita: o id vazio desliga o contador.
+    id: "",
     title,
     category,
     tags: selectedTags,

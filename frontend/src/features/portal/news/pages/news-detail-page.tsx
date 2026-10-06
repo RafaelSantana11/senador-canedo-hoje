@@ -15,7 +15,11 @@ import { JsonLd } from "@/components/seo/json-ld"
 import { absoluteSiteUrl } from "@/lib/seo"
 import { breadcrumbJsonLd, newsArticleJsonLd } from "@/lib/structured-data"
 import { serveBannersOptions } from "@/features/portal/home/services/banners-options"
-import { getCachedServeBanners } from "@/features/portal/home/services/portal-cache"
+import {
+  getCachedPublicSettings,
+  getCachedServeBanners,
+} from "@/features/portal/home/services/portal-cache"
+import { DEFAULT_PORTAL_SETTINGS } from "@/features/portal/settings/types"
 
 interface NewsDetailPageProps {
   slug: string
@@ -31,12 +35,21 @@ export default async function NewsDetailPage({ slug }: NewsDetailPageProps) {
     throw err
   }
 
+  // Quantas relacionadas exibir é parâmetro do portal (`RELATED_NEWS_COUNT`).
+  // Pede uma a mais porque a própria notícia pode voltar na listagem da
+  // categoria. Settings indisponível cai no default — recomendação é opcional.
+  const { RELATED_NEWS_COUNT: relatedNewsCount } = await getCachedPublicSettings()
+    .catch(() => DEFAULT_PORTAL_SETTINGS)
+
   let related: RelatedArticleView[] = []
   try {
-    const relatedResponse = await getRelatedNews(article.category.slug)
+    const relatedResponse = await getRelatedNews(
+      article.category.slug,
+      relatedNewsCount + 1
+    )
     related = relatedResponse.data
       .filter((item) => item.id !== article.id)
-      .slice(0, 3)
+      .slice(0, relatedNewsCount)
       .map(toRelatedArticleView)
   } catch {
     // Recommendations are optional; they must not make the article unavailable.
