@@ -24,7 +24,7 @@ const api = axios.create({
 })
 
 // Instância do portal: as rotas que ele consome são públicas no servidor, então
-// aqui não há anexo de token, refresh nem redireção para /login. Um visitante
+// aqui não há anexo de token, refresh nem redireção para /senadorlogin. Um visitante
 // anônimo — ou um ex-usuário com sessão revogada no localStorage — navega sem
 // tocar em nada do fluxo de auth do painel. Só o loading global é compartilhado.
 export const publicApi = axios.create({
@@ -76,8 +76,8 @@ function getStoredRefreshToken(): string | null {
 
 function redirectToLogin() {
   // assetPath aplica o basePath do deploy (ex.: GitHub Pages).
-  if (isBrowser() && window.location.pathname !== assetPath("/login")) {
-    window.location.assign(assetPath("/login"))
+  if (isBrowser() && window.location.pathname !== assetPath("/senadorlogin")) {
+    window.location.assign(assetPath("/senadorlogin"))
   }
 }
 

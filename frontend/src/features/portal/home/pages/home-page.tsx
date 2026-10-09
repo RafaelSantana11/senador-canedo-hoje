@@ -21,8 +21,8 @@ function MainSection({ showMiddleBanner }: { showMiddleBanner: boolean }) {
   const hasResults = allNews.length > 0 || !searchQuery.trim()
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
-      <AdBanner size="leaderboard" className="mb-8" />
+    <main className="mx-auto max-w-7xl px-4 py-4">
+      <AdBanner size="leaderboard" className="mb-8 h-48 sm:h-56" />
 
       {hasResults ? (
         <>

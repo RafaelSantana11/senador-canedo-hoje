@@ -46,7 +46,9 @@ Sem isso a imagem funciona em `dev` e 404 só na demo publicada.
 
 A integração usa `@next/third-parties` (gtag.js) + Consent Mode v2. O GA4 só
 carrega quando `NEXT_PUBLIC_GA_MEASUREMENT_ID` existe e o ambiente é produção
-(ou `NEXT_PUBLIC_GA_ENABLED=1`). O consentimento começa todo `denied`; ao
+(ou `NEXT_PUBLIC_GA_ENABLED=1`), e **apenas nas páginas do portal** — o
+`AnalyticsProvider` é montado no layout do grupo `(portal)`, então `/admin` e
+`/senadorlogin` não são rastreados. O consentimento começa todo `denied`; ao
 aceitar, **apenas `analytics_storage` é liberado**. Sinais de anúncio
 (`ad_storage`, `ad_user_data`, `ad_personalization`) nunca são concedidos e
 `ads_data_redaction` remove identificadores de clique de anúncio das URLs.
@@ -123,7 +125,7 @@ Rotas que existem só para máquina (cache curto + invalidação on-demand pelo 
 | `/llms.txt`           | Guia do portal para LLMs: seções, últimas notícias, contato (5 min)     |
 | `/sitemap-index.xml`  | Índice dos sitemaps (1 h); `/sitemap/[id].xml` traz notícias + hubs     |
 | `/news-sitemap.xml`   | News sitemap (Google News): matérias das últimas 48 h (5 min)           |
-| `/robots.txt`         | Libera tudo menos `/admin` e `/login`; aponta os dois sitemaps          |
+| `/robots.txt`         | Libera tudo menos `/admin` e `/senadorlogin`; aponta os dois sitemaps  |
 
 O JSON-LD (Organization/`NewsMediaOrganization`, `NewsArticle`,
 `CollectionPage`/`ItemList`, breadcrumbs) é montado em `src/lib/structured-data.ts`.

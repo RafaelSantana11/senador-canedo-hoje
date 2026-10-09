@@ -73,7 +73,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hasSession) {
-      router.replace("/login")
+      router.replace("/senadorlogin")
       return
     }
     // Fonte da verdade de quem está logado (traz o `author`). O interceptor do
@@ -102,7 +102,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   function handleLogout() {
     logoutUser().catch(() => {})
     useAuthStore.getState().logoutLocal()
-    router.replace("/login")
+    router.replace("/senadorlogin")
   }
 
   if (!ready) {

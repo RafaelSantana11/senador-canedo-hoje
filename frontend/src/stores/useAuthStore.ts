@@ -54,7 +54,7 @@ function persistUser(user: AuthUser | null) {
 
 // Lê o localStorage de forma síncrona no module scope. Assim o store já nasce
 // com a sessão restaurada ANTES do primeiro render — os effects do AdminShell
-// nunca enxergam `refreshToken === null` e não há flash para o /login (a
+// nunca enxergam `refreshToken === null` e não há flash para o /senadorlogin (a
 // hydratação via useEffect rodava depois dos effects dos filhos).
 function readStoredAuth() {
   if (!isBrowser()) return { refreshToken: null as string | null, user: null as AuthUser | null }

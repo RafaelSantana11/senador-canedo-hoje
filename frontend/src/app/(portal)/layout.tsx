@@ -1,4 +1,5 @@
 import { PortalFooter } from "@/components/layout/portal-footer"
+import { AnalyticsProvider } from "@/components/analytics/analytics-provider"
 import { JsonLd } from "@/components/seo/json-ld"
 import { siteJsonLd } from "@/lib/structured-data"
 import { getCachedPublicSettings } from "@/features/portal/home/services/portal-cache"
@@ -20,6 +21,9 @@ export default async function PortalLayout({
       <JsonLd data={siteJsonLd(settings)} />
       {children}
       <PortalFooter />
+      {/* GA4 + banner de consentimento (LGPD) — apenas nas rotas do portal.
+          /admin e /senadorlogin (painel editorial) não são instrumentados. */}
+      <AnalyticsProvider />
     </>
   )
 }
